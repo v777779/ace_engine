@@ -1,0 +1,55 @@
+# Copyright (c) 2022 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
+
+ace_unittest("flex_test_ng") {
+  type = "new"
+  module_name = "Layout-Flex"
+  sources = [
+    "flex_base_test_ng.cpp",
+    "flex_new_test_ng_first_part.cpp",
+    "flex_new_test_ng_second_part.cpp",
+    "flex_new_test_ng_third_part.cpp",
+    "old_cases/flex_test_ng.cpp",
+    "old_cases/flex_testthree_ng.cpp",
+    "old_cases/flex_testtwo_ng_first_part.cpp",
+    "old_cases/flex_testtwo_ng_second_part.cpp",
+    "old_cases/flex_wrap_layout_algorithm_test.cpp",
+  ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "flex_test_core.cpp" ]
+  } else {
+    sources += [ "flex_test_core.cpp" ]
+  }
+}
+
+ace_unittest("flex_overflow_test_ng") {
+  type = "new"
+  module_name = "Layout-Flex"
+  sources = [
+    "flex_base_test_ng.cpp",
+    "flex_overflow_test_ng.cpp",
+  ]
+}
+
+ace_unittest("wrap_overflow_test_ng") {
+  type = "new"
+  module_name = "Layout-Flex"
+  sources = [
+    "flex_base_test_ng.cpp",
+    "wrap_overflow_test_ng.cpp",
+  ]
+}

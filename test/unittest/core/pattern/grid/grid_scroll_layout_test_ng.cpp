@@ -1,0 +1,1024 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "grid_test_ng.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/components_ng/render/mock_render_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+
+#include "core/components_ng/pattern/grid/grid_item_pattern.h"
+#include "core/components_ng/pattern/grid/grid_item_layout_property.h"
+#include "core/components_ng/pattern/grid/grid_layout/grid_layout_algorithm.h"
+#include "core/components_ng/pattern/grid/grid_paint_method.h"
+#include "core/components_ng/pattern/grid/grid_scroll/grid_scroll_layout_algorithm.h"
+#include "core/components_ng/pattern/grid/grid_scroll/grid_scroll_with_options_layout_algorithm.h"
+#include "core/components_ng/pattern/scrollable/scrollable_model_ng.h"
+#include "core/components_ng/pattern/text_field/text_field_manager.h"
+
+namespace OHOS::Ace::NG {
+class GridScrollLayoutTestNg : public GridTestNg {
+public:
+    void UpdateLayoutInfo();
+    RefPtr<GridPaintMethod> UpdateOverlayModifier();
+    RefPtr<GridPaintMethod> UpdateContentModifier();
+};
+
+void GridScrollLayoutTestNg::UpdateLayoutInfo()
+{
+    GetGrid();
+    ViewStackProcessor::GetInstance()->Finish();
+    FlushUITasks(frameNode_);
+    pattern_->info_.lineHeightMap_[0] = ITEM_MAIN_SIZE;
+    pattern_->info_.gridMatrix_[0][0] = 0;
+    pattern_->info_.gridMatrix_[0][1] = 1;
+    pattern_->info_.gridMatrix_[1][0] = 0;
+    pattern_->info_.gridMatrix_[1][1] = 1;
+}
+
+RefPtr<GridPaintMethod> GridScrollLayoutTestNg::UpdateOverlayModifier()
+{
+    auto paintWrapper = frameNode_->CreatePaintWrapper();
+    RefPtr<GridPaintMethod> paintMethod = AceType::DynamicCast<GridPaintMethod>(paintWrapper->nodePaintImpl_);
+    paintMethod->UpdateOverlayModifier(AceType::RawPtr(paintWrapper));
+    return paintMethod;
+}
+
+RefPtr<GridPaintMethod> GridScrollLayoutTestNg::UpdateContentModifier()
+{
+    auto paintWrapper = frameNode_->CreatePaintWrapper();
+    RefPtr<GridPaintMethod> paintMethod = AceType::DynamicCast<GridPaintMethod>(paintWrapper->nodePaintImpl_);
+    paintMethod->UpdateContentModifier(AceType::RawPtr(paintWrapper));
+    return paintMethod;
+}
+
+/**
+ * @tc.name: GridPaintMethodTest001
+ * @tc.desc: Test grid paint method GetForegroundDrawFunction function
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridPaintMethodTest001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    auto paintMethod = AceType::DynamicCast<GridPaintMethod>(pattern_->CreateNodePaintMethod());
+    auto paintProperty = pattern_->CreatePaintProperty();
+    PaintWrapper paintWrapper(frameNode_->GetRenderContext(), frameNode_->GetGeometryNode(), paintProperty);
+    auto drawFunction = paintMethod->GetForegroundDrawFunction(&paintWrapper);
+    Testing::MockCanvas rsCanvas;
+    EXPECT_CALL(rsCanvas, DetachPen()).WillRepeatedly(ReturnRef(rsCanvas));
+    EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
+    EXPECT_CALL(rsCanvas, DrawRect(_)).WillRepeatedly(Return());
+    drawFunction(rsCanvas);
+    paintMethod = nullptr;
+    drawFunction(rsCanvas);
+
+    /**
+     * @tc.steps: step1. When EdgeEffect::SPRING
+     * @tc.expected: CreateNodePaintMethod would not trigger SetEdgeEffect
+     */
+    pattern_->SetEdgeEffect(EdgeEffect::SPRING);
+    paintMethod = AceType::DynamicCast<GridPaintMethod>(pattern_->CreateNodePaintMethod());
+    EXPECT_EQ(paintMethod->edgeEffect_.Upgrade(), nullptr);
+
+    /**
+     * @tc.steps: step2. When EdgeEffect::FADE
+     * @tc.expected: CreateNodePaintMethod would trigger SetEdgeEffect
+     */
+    pattern_->SetEdgeEffect(EdgeEffect::FADE);
+    paintMethod = AceType::DynamicCast<GridPaintMethod>(pattern_->CreateNodePaintMethod());
+    EXPECT_NE(paintMethod->edgeEffect_.Upgrade(), nullptr);
+}
+
+/**
+ * @tc.name: ScrollLayout001
+ * @tc.desc: Test UpdateOffsetOnVirtualKeyboardHeightChange
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, ScrollLayout001, TestSize.Level1)
+{
+    auto textFieldManager = AceType::MakeRefPtr<TextFieldManagerNG>();
+    MockPipelineContext::GetCurrent()->SetTextFieldManager(textFieldManager);
+    auto textFieldPattern = AceType::MakeRefPtr<Pattern>();
+    textFieldManager->SetOnFocusTextField(textFieldPattern);
+    const Offset clickPosition = Offset(100.f, HEIGHT + ITEM_MAIN_SIZE);
+    textFieldManager->SetClickPosition(clickPosition);
+
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    model.SetMaxCount(2);
+    CreateFixedItems(18);
+    CreateDone();
+    const float smallerHeight = HEIGHT - ITEM_MAIN_SIZE;
+    RectF gridRect(0, 0, WIDTH, smallerHeight);
+    auto mockRenderContext = AceType::DynamicCast<MockRenderContext>(frameNode_->renderContext_);
+    mockRenderContext->rect_ = gridRect;
+
+    /**
+     * @tc.steps: step1. Change to smaller mainSize
+     * @tc.expected: The mainSize is correct
+     */
+    auto gridFocus = frameNode_->GetOrCreateFocusHub();
+    gridFocus->RequestFocusImmediately();
+    // change grid height and trigger Measure
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(smallerHeight));
+    FlushUITasks();
+    float gridHeight = frameNode_->GetGeometryNode()->GetFrameSize().Height();
+    EXPECT_FLOAT_EQ(gridHeight, smallerHeight);
+}
+
+/**
+ * @tc.name: ScrollLayout002
+ * @tc.desc: Test UpdateOffsetOnVirtualKeyboardHeightChange that currentOffset wuold not change
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, ScrollLayout002, TestSize.Level1)
+{
+    auto textFieldManager = AceType::MakeRefPtr<TextFieldManagerNG>();
+    MockPipelineContext::GetCurrent()->SetTextFieldManager(textFieldManager);
+    auto textFieldPattern = AceType::MakeRefPtr<Pattern>();
+    textFieldManager->SetOnFocusTextField(textFieldPattern);
+    const Offset clickPosition = Offset(100.f, 100.f);
+    textFieldManager->SetClickPosition(clickPosition);
+
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr 1fr 1fr");
+    model.SetMaxCount(2);
+    CreateFixedItems(18);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. While axis_ == Axis::HORIZONTAL
+     * @tc.expected: currentOffset_ would not change
+     */
+    pattern_->info_.axis_ = Axis::HORIZONTAL;
+    const float smallerHeight = HEIGHT - ITEM_MAIN_SIZE;
+    // change grid height and trigger Measure
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(smallerHeight));
+    FlushUITasks();
+    float currentOffset = pattern_->info_.currentOffset_;
+    EXPECT_FLOAT_EQ(currentOffset, 0);
+
+    /**
+     * @tc.steps: step2. While Grid !IsCurrentFocus()
+     * @tc.expected: currentOffset_ would not change
+     */
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(HEIGHT));
+    FlushUITasks();
+    pattern_->info_.axis_ = Axis::VERTICAL;
+    // change grid height and trigger Measure
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(smallerHeight));
+    FlushUITasks();
+    currentOffset = pattern_->info_.currentOffset_;
+    EXPECT_FLOAT_EQ(currentOffset, 0);
+
+    /**
+     * @tc.steps: step3. While clickPosition is in Grid
+     * @tc.expected: currentOffset_ would not change
+     */
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(HEIGHT));
+    FlushUITasks();
+    pattern_->info_.axis_ = Axis::VERTICAL;
+    // change grid height and trigger Measure
+    ViewAbstract::SetHeight(AceType::RawPtr(frameNode_), CalcLength(smallerHeight));
+    FlushUITasks();
+    currentOffset = pattern_->info_.currentOffset_;
+    EXPECT_FLOAT_EQ(currentOffset, 0);
+}
+
+/**
+ * @tc.name: GridScrollTest001
+ * @tc.desc: Test FireOnScrollBarUpdate Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    ScrollBarUpdateFunc scrollFunc = [](int32_t index, Dimension offset) {
+        std::optional<float> horizontalOffset = offset.ConvertToPx();
+        std::optional<float> verticalOffset = offset.ConvertToPx();
+        return std::make_pair(horizontalOffset, verticalOffset);
+    };
+    model.SetRowsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(5));
+    model.SetOnScrollBarUpdate(std::move(scrollFunc));
+    CreateBigItem(1, 1, 1, 2);
+    CreateFixedItems(2);
+    CreateDone();
+    Dimension offset(1.0);
+    auto fireOnScroll = eventHub_->FireOnScrollBarUpdate(1.0, offset);
+    EXPECT_FLOAT_EQ(fireOnScroll.first.value(), 1.0f);
+    EXPECT_FLOAT_EQ(fireOnScroll.second.value(), 1.0f);
+}
+
+/**
+ * @tc.name: GridScrollTest002
+ * @tc.desc: Test CalculateLargeItemOffset Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create gridItem and initialize related properties.
+     */
+    GridModelNG model;
+    model.Create(nullptr, nullptr);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    model.SetRowsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(5));
+    UpdateLayoutInfo();
+    auto gridScrollLayoutAlgorithm = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(pattern_->info_);
+    ASSERT_NE(gridScrollLayoutAlgorithm, nullptr);
+    auto ret = gridScrollLayoutAlgorithm->CalculateLargeItemOffset(OffsetF(100, 100), 0, 1, 0);
+    EXPECT_EQ(ret.GetX(), 100.f - ITEM_MAIN_SIZE);
+    EXPECT_EQ(ret.GetY(), 100.f);
+}
+
+/**
+ * @tc.name: GridScrollTest003
+ * @tc.desc: Test CalculateLargeItemOffset Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest003, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create gridItem and initialize related properties.
+     */
+    GridModelNG model;
+    model.Create(nullptr, nullptr);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(5));
+    CreateFixedItems(10);
+    UpdateLayoutInfo();
+    auto gridScrollLayoutAlgorithm = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(pattern_->info_);
+    ASSERT_NE(gridScrollLayoutAlgorithm, nullptr);
+    auto ret = gridScrollLayoutAlgorithm->CalculateLargeItemOffset(OffsetF(0, 100), 1, 1, 0);
+    EXPECT_EQ(ret.GetY(), 100.0f);
+    EXPECT_EQ(ret.GetX(), 0.0f);
+}
+
+/**
+ * @tc.name: GridScrollTest004
+ * @tc.desc: Test CalculateLargeItemOffset Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest004, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create gridItem and initialize related properties.
+     */
+    GridModelNG model;
+    model.Create(nullptr, nullptr);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    model.SetRowsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(5));
+    UpdateLayoutInfo();
+    auto gridScrollLayoutAlgorithm = AceType::MakeRefPtr<GridScrollLayoutAlgorithm>(pattern_->info_);
+    gridScrollLayoutAlgorithm->info_.crossCount_ = 2;
+    auto ret1 = gridScrollLayoutAlgorithm->CalculateLargeItemOffset(OffsetF(0, 100), 1, 1, 0);
+    EXPECT_EQ(ret1.GetY(), 100.0f);
+    EXPECT_EQ(ret1.GetX(), 0.0f);
+}
+
+/**
+ * @tc.name: GridScrollTest005
+ * @tc.desc: Test AdjustRowColSpan Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest005, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    GridItemModelNG itemModel;
+    itemModel.Create(GridItemStyle::NONE);
+    itemModel.SetRowStart(NULL_VALUE);
+    itemModel.SetRowEnd(NULL_VALUE);
+    itemModel.SetColumnStart(NULL_VALUE);
+    itemModel.SetColumnEnd(NULL_VALUE);
+    ViewStackProcessor::GetInstance()->Pop();
+    CreateDone();
+    auto layoutProperty = GetChildLayoutProperty<GridItemLayoutProperty>(frameNode_, 0);
+    EXPECT_EQ(layoutProperty->GetRowStart(), NULL_VALUE);
+    EXPECT_EQ(layoutProperty->GetRowEnd(), NULL_VALUE);
+    EXPECT_EQ(layoutProperty->GetColumnStart(), NULL_VALUE);
+    EXPECT_EQ(layoutProperty->GetColumnEnd(), NULL_VALUE);
+}
+
+/**
+ * @tc.name: GetTotalHeight001
+ * @tc.desc: Test GetTotalHeight Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetTotalHeight001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create 10 gridItem
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetTotalHeight(), ITEM_MAIN_SIZE * 3);
+
+    /**
+     * @tc.steps: step2. Create 20 gridItem
+     */
+    model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetTotalHeight(), ITEM_MAIN_SIZE * 5);
+}
+
+/**
+ * @tc.name: GetTotalHeightWithOptions
+ * @tc.desc: Test total height of grid with different irregular heights.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetTotalHeightWithOptions, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    GridLayoutOptions option;
+    option.irregularIndexes = { 0, 2, 4 };
+    model.SetLayoutOptions(option);
+    CreateFixedHeightItems(1, 100);
+    CreateFixedHeightItems(1, 50);
+    CreateFixedHeightItems(1, 80);
+    CreateFixedHeightItems(1, 50);
+    CreateFixedHeightItems(1, 30);
+    CreateDone();
+
+    EXPECT_EQ(pattern_->GetTotalHeight(), 310);
+}
+
+/**
+ * @tc.name: GetAverageHeight001
+ * @tc.desc: Test GetAverageHeight Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetAverageHeight001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create 10 gridItem
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetAverageHeight(), 30);
+
+    /**
+     * @tc.steps: step2. Create 20 gridItem
+     */
+    ClearOldNodes();
+    model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetAverageHeight(), 25);
+}
+
+/**
+ * @tc.name: ChangeItemNumber001
+ * @tc.desc: Test ChangeItemNumber
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, ChangeItemNumber001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(5);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Add item
+     * @tc.expected: The added item in the correct position
+     */
+    for (int32_t i = 0; i < 4; i++) {
+        GridItemModelNG itemModel;
+        itemModel.Create(GridItemStyle::NONE);
+        ViewAbstract::SetHeight(CalcLength(Dimension(ITEM_MAIN_SIZE)));
+        RefPtr<UINode> currentNode = ViewStackProcessor::GetInstance()->Finish();
+        auto currentFrameNode = AceType::DynamicCast<FrameNode>(currentNode);
+        currentFrameNode->MountToParent(frameNode_);
+    }
+    frameNode_->MarkDirtyNode(PROPERTY_UPDATE_MEASURE);
+    FlushUITasks();
+    EXPECT_TRUE(IsEqual(GetChildOffset(frameNode_, 6), OffsetF(120.0f, ITEM_MAIN_SIZE)));
+    EXPECT_TRUE(IsEqual(GetChildOffset(frameNode_, 8), OffsetF(0, ITEM_MAIN_SIZE * 2)));
+}
+
+/**
+ * @tc.name: UpdateGridMatrix001
+ * @tc.desc: Test UpdateGridMatrix
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, UpdateGridMatrix001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create 100 items
+     * @tc.expected: The added item in the correct position
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateGridItems(100, ITEM_MAIN_SIZE, NULL_VALUE, GridItemStyle::NONE);
+    CreateDone();
+
+    /**
+     * @tc.steps: step2. Scroll To 99 item
+     * @tc.expected: Scroll to the correct position,lineHeightMap_ size is 25
+     */
+    pattern_->ScrollToIndex(99, true, ScrollAlign::END);
+    EXPECT_TRUE(IsEqual(pattern_->info_.lineHeightMap_.size(), 25));
+}
+
+/**
+ * @tc.name: GridLayout004
+ * @tc.desc: Test GridLayoutAlgorithm for coverage
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridLayout004, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. isVertical_ is true
+     * @tc.expected: The curRow and curCol is correct
+     */
+    int32_t curRow = 0;
+    int32_t curCol = 0;
+    auto pattern = frameNode_->GetPattern<GridPattern>();
+    auto algorithm = AceType::MakeRefPtr<GridLayoutAlgorithm>(GridLayoutInfo {});
+    algorithm->crossCount_ = 2;
+    algorithm->mainCount_ = 5;
+    algorithm->GetNextGrid(curRow, curCol);
+    EXPECT_EQ(curRow, 0);
+    EXPECT_EQ(curCol, 1);
+    EXPECT_TRUE(algorithm->isVertical_);
+    algorithm->GetNextGrid(curRow, curCol);
+    EXPECT_EQ(curRow, 1);
+    EXPECT_EQ(curCol, 0);
+    curRow = 1;
+    curCol = 1;
+
+    /**
+     * @tc.steps: step2. isVertical_ is false
+     * @tc.expected: The curRow and curCol is correct
+     */
+    algorithm->isVertical_ = false;
+    algorithm->GetNextGrid(curRow, curCol);
+    EXPECT_EQ(curRow, 2);
+    EXPECT_EQ(curCol, 1);
+    algorithm->GetNextGrid(curRow, curCol);
+    EXPECT_EQ(curRow, 3);
+    EXPECT_EQ(curCol, 1);
+    curRow = 5;
+    algorithm->GetNextGrid(curRow, curCol);
+    EXPECT_EQ(curRow, 0);
+    EXPECT_EQ(curCol, 2);
+}
+
+/**
+ * @tc.name: UpdateOverlayModifier001
+ * @tc.desc: Test grid paint method UpdateOverlayModifier function
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, UpdateOverlayModifier001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. call UpdateOverlayModifier
+     * @tc.expected: scrollBar is nullptr
+     */
+    auto paintMethod = UpdateOverlayModifier();
+    auto scrollBar = paintMethod->scrollBar_.Upgrade();
+    EXPECT_EQ(scrollBar, nullptr);
+}
+
+/**
+ * @tc.name: UpdateOverlayModifier002
+ * @tc.desc: Test grid paint method UpdateOverlayModifier function
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, UpdateOverlayModifier002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. create scrollBar and paintMethod
+     * @tc.expected: scrollBar is !nullptr
+     */
+    pattern_->scrollBar_ = AceType::MakeRefPtr<ScrollBar>(DisplayMode::AUTO);
+    auto paintMethod = UpdateOverlayModifier();
+    auto scrollBar = paintMethod->scrollBar_.Upgrade();
+    EXPECT_NE(scrollBar, nullptr);
+
+    /**
+     * @tc.steps: step2. call UpdateOverlayModifier
+     * @tc.expected: AnimationTyp is correct
+     */
+    paintMethod = UpdateOverlayModifier();
+    EXPECT_EQ(scrollBar->GetOpacityAnimationType(), OpacityAnimationType::NONE);
+    EXPECT_EQ(scrollBar->GetHoverAnimationType(), HoverAnimationType::NONE);
+
+    /**
+     * @tc.steps: step3. call UpdateOverlayModifier when scrollBarOverlayModifier is seted
+     * @tc.expected: AnimationTyp is correct
+     */
+    pattern_->CreateScrollBarOverlayModifier();
+    EXPECT_EQ(pattern_->scrollBarOverlayModifier_, nullptr);
+    paintMethod->SetScrollBarOverlayModifier(pattern_->GetScrollBarOverlayModifier());
+    auto scrollBarOverlayModifier = paintMethod->scrollBarOverlayModifier_.Upgrade();
+    EXPECT_EQ(scrollBarOverlayModifier, nullptr);
+    paintMethod = UpdateOverlayModifier();
+    EXPECT_EQ(scrollBar->GetOpacityAnimationType(), OpacityAnimationType::NONE);
+    EXPECT_EQ(scrollBar->GetHoverAnimationType(), HoverAnimationType::NONE);
+    scrollBar = nullptr;
+}
+
+/**
+ * @tc.name: UpdateOverlayModifier003
+ * @tc.desc: Test grid paint method UpdateOverlayModifier function
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, UpdateOverlayModifier003, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. create scrollBar and paintMethod and ScrollBarOverlayModifier
+     * @tc.expected: scrollBar is !nullptr
+     */
+    pattern_->scrollBar_ = AceType::MakeRefPtr<ScrollBar>(DisplayMode::AUTO);
+    pattern_->scrollBar_->SetScrollable(true);
+    auto paintMethod = AceType::DynamicCast<GridPaintMethod>(pattern_->CreateNodePaintMethod());
+    EXPECT_TRUE(pattern_->scrollBar_->NeedPaint());
+    pattern_->CreateScrollBarOverlayModifier();
+    EXPECT_NE(pattern_->scrollBarOverlayModifier_, nullptr);
+    paintMethod->SetScrollBarOverlayModifier(pattern_->GetScrollBarOverlayModifier());
+    auto scrollBarOverlayModifier = paintMethod->scrollBarOverlayModifier_.Upgrade();
+    EXPECT_NE(scrollBarOverlayModifier, nullptr);
+    auto scrollBar = paintMethod->scrollBar_.Upgrade();
+    EXPECT_NE(scrollBar, nullptr);
+
+    /**
+     * @tc.steps: step2. call UpdateOverlayModifier
+     * @tc.expected: AnimationTyp is correct
+     */
+    paintMethod = UpdateOverlayModifier();
+    EXPECT_EQ(scrollBar->GetOpacityAnimationType(), OpacityAnimationType::NONE);
+    EXPECT_EQ(scrollBar->GetHoverAnimationType(), HoverAnimationType::NONE);
+
+    /**
+     * @tc.steps: step3. change PositionMode and call UpdateOverlayModifier
+     * @tc.expected: AnimationTyp is correct
+     */
+    scrollBar->SetPositionMode(PositionMode::BOTTOM);
+    paintMethod = UpdateOverlayModifier();
+    scrollBar = paintMethod->scrollBar_.Upgrade();
+    EXPECT_EQ(scrollBar->GetOpacityAnimationType(), OpacityAnimationType::NONE);
+    EXPECT_EQ(scrollBar->GetHoverAnimationType(), HoverAnimationType::NONE);
+    scrollBar = nullptr;
+}
+
+/**
+ * @tc.name: PaintEdgeEffect001
+ * @tc.desc: Test grid paint method PaintEdgeEffect function
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, PaintEdgeEffect001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. init scrollBar
+     * @tc.expected: scrollBar is !nullptr
+     */
+    pattern_->scrollBar_ = AceType::MakeRefPtr<ScrollBar>(DisplayMode::AUTO);
+    pattern_->scrollBar_->SetScrollable(true);
+    auto paintMethod = AceType::DynamicCast<GridPaintMethod>(pattern_->CreateNodePaintMethod());
+    auto paintProperty = pattern_->CreatePaintProperty();
+    PaintWrapper paintWrapper(frameNode_->GetRenderContext(), frameNode_->GetGeometryNode(), paintProperty);
+    EXPECT_TRUE(pattern_->scrollBar_->NeedPaint());
+    pattern_->CreateScrollBarOverlayModifier();
+    EXPECT_NE(pattern_->scrollBarOverlayModifier_, nullptr);
+    paintMethod->SetScrollBarOverlayModifier(pattern_->GetScrollBarOverlayModifier());
+    auto scrollBarOverlayModifier = paintMethod->scrollBarOverlayModifier_.Upgrade();
+    EXPECT_NE(scrollBarOverlayModifier, nullptr);
+    auto scrollBar = paintMethod->scrollBar_.Upgrade();
+    EXPECT_NE(scrollBar, nullptr);
+
+    /**
+     * @tc.steps: step2. call PaintEdgeEffect
+     * @tc.expected: edgeEffect_ is !nullptr
+     */
+    auto scrollEdgeEffect = AceType::MakeRefPtr<ScrollEdgeEffect>();
+    paintMethod->SetEdgeEffect(scrollEdgeEffect);
+    Testing::MockCanvas rsCanvas;
+    EXPECT_CALL(rsCanvas, DetachPen()).WillRepeatedly(ReturnRef(rsCanvas));
+    EXPECT_CALL(rsCanvas, AttachBrush(_)).WillRepeatedly(ReturnRef(rsCanvas));
+    EXPECT_CALL(rsCanvas, DrawRect(_)).WillRepeatedly(Return());
+    EXPECT_CALL(rsCanvas, DetachBrush()).WillRepeatedly(ReturnRef(rsCanvas));
+    paintMethod->PaintEdgeEffect(nullptr, rsCanvas);
+    paintMethod->PaintEdgeEffect(&paintWrapper, rsCanvas);
+    EXPECT_NE(paintMethod->edgeEffect_.Upgrade(), nullptr);
+}
+
+/**
+ * @tc.name: GridScrollTest006
+ * @tc.desc: Test SetOnScrollBarUpdate Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScrollTest006, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    ASSERT_NE(paintProperty_, nullptr);
+    ScrollBarUpdateFunc scrollFunc = [](int32_t index, Dimension offset) {
+        std::optional<float> horizontalOffset = offset.ConvertToPx();
+        std::optional<float> verticalOffset = offset.ConvertToPx();
+        return std::make_pair(horizontalOffset, verticalOffset);
+    };
+    model.SetRowsTemplate("1fr 1fr");
+    CreateFixedItems(2);
+    model.SetGridHeight(Dimension(5));
+    model.SetScrollBarMode(DisplayMode::AUTO);
+    model.SetScrollBarColor(Color());
+    model.SetScrollBarColor(std::nullopt);
+    auto scrollBarColor = paintProperty_->GetScrollBarColor();
+    EXPECT_EQ(scrollBarColor, std::nullopt);
+    model.SetScrollBarColor("#FF0000");
+    model.SetScrollBarWidth("10vp");
+    model.SetIsRTL(TextDirection::LTR);
+
+    NestedScrollOptions nestedOpt;
+    model.SetNestedScroll(std::move(nestedOpt));
+    ScrollToIndexFunc value;
+    model.SetOnScrollToIndex(std::move(value));
+    CreateDone();
+    auto paintProperty = frameNode_->GetPaintProperty<ScrollablePaintProperty>();
+    EXPECT_EQ(paintProperty->GetBarStateString(), "BarState.Auto");
+
+    auto pattern = frameNode_->GetPattern<GridPattern>();
+    EXPECT_TRUE(pattern->isConfigScrollable_);
+    auto eventHub = frameNode_->GetEventHub<GridEventHub>();
+    EXPECT_FALSE(eventHub->onScrollToIndex_);
+}
+
+/**
+ * @tc.name: GridScroll001
+ * @tc.desc: Test SetSelected Function.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GridScroll001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Create GridItemModelNG object
+     */
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr 1fr");
+    GridItemModelNG itemModel;
+    itemModel.Create(GridItemStyle::NONE);
+    itemModel.SetRowStart(NULL_VALUE);
+    itemModel.SetRowEnd(NULL_VALUE);
+    itemModel.SetColumnStart(NULL_VALUE);
+    itemModel.SetColumnEnd(NULL_VALUE);
+    ViewStackProcessor::GetInstance()->Pop();
+
+    /**
+     * @tc.steps: step2. Test Create function
+     */
+    std::function<void(int32_t)> deepRenderFunc = [](int32_t innerNodeId) {};
+    bool isLazy = true;
+    itemModel.Create(std::move(deepRenderFunc), isLazy, GridItemStyle::PLAIN);
+
+    /**
+     * @tc.steps: step3. invoke SetSelected function
+     */
+    itemModel.SetSelected(true);
+    CreateDone();
+
+    /**
+     * @tc.expected: gridItemPattern->isSelected_ is true
+     */
+    auto gridItemPattern = GetChildPattern<GridItemPattern>(frameNode_, 1);
+    EXPECT_TRUE(gridItemPattern->isSelected_);
+}
+
+/**
+ * @tc.name: SupplyAllData2ZeroIndex001
+ * @tc.desc: Test GridScrollLayoutAlgorithm::SupplyAllData2ZeroIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, SupplyAllData2ZeroIndex001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr");
+    CreateFixedItems(30);
+    CreateDone();
+
+    ScrollToIndex(20, true, ScrollAlign::END);
+
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.size(), 4);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().lineHeightMap_.size(), 4);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.at(0).at(0), 0);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.at(3).at(2), 11);
+}
+
+/**
+ * @tc.name: SupplyAllData2ZeroIndex002
+ * @tc.desc: Test GridScrollLayoutAlgorithm::SupplyAllData2ZeroIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, SupplyAllData2ZeroIndex002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr");
+    CreateFixedItems(30);
+    CreateDone();
+
+    ScrollToIndex(20, true, ScrollAlign::START);
+    ScrollToIndex(10, true, ScrollAlign::CENTER);
+
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.size(), 4);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().lineHeightMap_.size(), 4);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.at(0).at(0), 0);
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().gridMatrix_.at(3).at(2), 11);
+}
+
+/**
+ * @tc.name: OnModifyDone001
+ * @tc.desc: Test OnModifyDone
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, OnModifyDone001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Test OnModifyDone
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    model.SetMultiSelectable(true);
+    CreateFixedItems(10);
+    CreateDone();
+    auto paintProperty = pattern_->GetPaintProperty<ScrollablePaintProperty>();
+    EXPECT_TRUE(pattern_->multiSelectable_);
+    EXPECT_TRUE(pattern_->isMouseEventInit_);
+    EXPECT_TRUE(pattern_->GetScrollableEvent());
+    EXPECT_TRUE(paintProperty->GetScrollBarProperty());
+    EXPECT_TRUE(frameNode_->GetFocusHub());
+    EXPECT_TRUE(pattern_->GetScrollableEvent()->GetScrollable());
+
+    /**
+     * @tc.steps: step2. Call OnModifyDone
+     */
+    pattern_->OnModifyDone();
+    EXPECT_TRUE(pattern_->multiSelectable_);
+    EXPECT_TRUE(pattern_->isMouseEventInit_);
+    EXPECT_TRUE(pattern_->GetScrollableEvent());
+    EXPECT_TRUE(paintProperty->GetScrollBarProperty());
+    EXPECT_TRUE(frameNode_->GetFocusHub());
+    EXPECT_TRUE(pattern_->GetScrollableEvent()->GetScrollable());
+
+    /**
+     * @tc.steps: step3. Change MultiSelectable and Call OnModifyDone
+     */
+    pattern_->SetMultiSelectable(false);
+    pattern_->OnModifyDone();
+    EXPECT_FALSE(pattern_->multiSelectable_);
+    EXPECT_FALSE(pattern_->isMouseEventInit_);
+}
+
+/**
+ * @tc.name: GetEndOffset001
+ * @tc.desc: Test GetEndOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetEndOffset001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetEndOffset(), ITEM_MAIN_SIZE);
+}
+
+/**
+ * @tc.name: GetEndOffset002
+ * @tc.desc: Test GetEndOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetEndOffset002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    pattern_->SetEdgeEffect(EdgeEffect::SPRING, true);
+    EXPECT_EQ(pattern_->GetEndOffset(), 0);
+}
+
+/**
+ * @tc.name: GetEndOffset003
+ * @tc.desc: Test GetEndOffset
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetEndOffset003, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+    pattern_->SetEdgeEffect(EdgeEffect::SPRING, true);
+    EXPECT_EQ(pattern_->GetEndOffset(), 0);
+}
+
+/**
+ * @tc.name: GetVisibleSelectedItems001
+ * @tc.desc: Test GetVisibleSelectedItems
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, GetVisibleSelectedItems001, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set item(index:1) isSelected and call GetVisibleSelectedItems
+     * @tc.expected: Has 1 item selected
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+    GetChildPattern<GridItemPattern>(frameNode_, 1)->SetSelected(true);
+    EXPECT_EQ(pattern_->GetVisibleSelectedItems().size(), 1);
+    EXPECT_FALSE(pattern_->irregular_);
+}
+
+/**
+ * @tc.name: AdaptToChildMainSize001
+ * @tc.desc: Test AdaptToChildMainSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, AdaptToChildMainSize001, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set ColumnsTemplate, not set grid height
+     */
+    GridModelNG model;
+    RefPtr<ScrollControllerBase> positionController = model.CreatePositionController();
+    RefPtr<ScrollProxy> scrollBarProxy = model.CreateScrollBarProxy();
+    model.Create(positionController, scrollBarProxy);
+    ViewAbstract::SetWidth(CalcLength(WIDTH));
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    model.SetCellLength(ITEM_MAIN_SIZE);
+    model.SetMaxCount(4);
+    CreateFixedItems(20);
+    GetGrid();
+    CreateDone();
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().lastMainSize_, 500.f);
+}
+
+/**
+ * @tc.name: AdaptToChildMainSize002
+ * @tc.desc: Test AdaptToChildMainSize
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, AdaptToChildMainSize002, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set RowsTemplate, not set grid width
+     */
+    GridModelNG model;
+    RefPtr<ScrollControllerBase> positionController = model.CreatePositionController();
+    RefPtr<ScrollProxy> scrollBarProxy = model.CreateScrollBarProxy();
+    model.Create(positionController, scrollBarProxy);
+    ViewAbstract::SetHeight(CalcLength(HEIGHT));
+    model.SetRowsTemplate("1fr 1fr 1fr 1fr");
+    model.SetCellLength(ITEM_MAIN_SIZE);
+    model.SetMaxCount(4);
+    CreateFixedItems(20);
+    GetGrid();
+    CreateDone();
+    EXPECT_EQ(pattern_->GetGridLayoutInfo().lastMainSize_, 500.f);
+}
+
+/**
+ * @tc.name: SpringAnimationWithReload
+ * @tc.desc: Test SpringAnimationWithReload
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, SpringAnimationWithReload, TestSize.Level1)
+{
+    MockAnimationManager::GetInstance().Reset();
+    MockAnimationManager::GetInstance().SetTicks(5);
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateFixedItems(2);
+    CreateDone();
+
+    GestureEvent info;
+    info.SetMainVelocity(200.f);
+    info.SetMainDelta(200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    EXPECT_TRUE(pattern_->OutBoundaryCallback());
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_GE(pattern_->info_.currentOffset_, 0.0);
+
+    frameNode_->childrenUpdatedFrom_ = 1;
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_GE(pattern_->info_.currentOffset_, 0.0);
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_GE(pattern_->info_.currentOffset_, 0.0);
+}
+
+/**
+ * @tc.name: IsAtBottom
+ * @tc.desc: Test IsAtBottom
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollLayoutTestNg, IsAtBottom, TestSize.Level1)
+{
+    MockAnimationManager::GetInstance().Reset();
+    MockAnimationManager::GetInstance().SetTicks(3);
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedHeightItems(10, 100);
+    CreateFixedHeightItems(1, 0);
+    CreateFixedHeightItems(1, 0);
+    CreateDone();
+    EXPECT_FALSE(pattern_->IsAtBottom());
+
+    // mock the scroll up
+    GestureEvent info;
+    info.SetMainVelocity(-1000.f);
+    info.SetMainDelta(-200.f);
+    auto scrollable = pattern_->GetScrollableEvent()->GetScrollable();
+    scrollable->HandleTouchDown();
+    scrollable->HandleDragStart(info);
+    scrollable->HandleDragUpdate(info);
+    FlushUITasks();
+
+    scrollable->HandleTouchUp();
+    scrollable->HandleDragEnd(info);
+    FlushUITasks();
+    // start animation
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_TRUE(MockAnimationManager::GetInstance().AllFinished());
+    EXPECT_TRUE(pattern_->IsAtBottom());
+    FlushUITasks();
+    EXPECT_TRUE(pattern_->IsAtBottom());
+}
+} // namespace OHOS::Ace::NG

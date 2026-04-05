@@ -1,0 +1,100 @@
+/*
+ * Copyright (c) 2022-2023 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { mutableState, MutableState, NodeAttach, rememberDisposable, RunEffect, scheduleCallback } from '@koalaui/runtime';
+import { PeerNode } from './PeerNode';
+import { ArkCustomComponentRootPeer } from '#generated';
+import { ArkCustomComponent } from './ArkCustomComponent';
+import { InteropNativeModule } from '@koalaui/interop';
+import { __context, GlobalStateManager, StateManager } from '@koalaui/runtime';
+import { ObserveSingleton } from "arkui/stateManagement/base/observeSingleton";
+import { CallbackTransformer } from './CallbackTransformer';
+import { KPointer, nullptr } from '@koalaui/interop';
+import { FreeRootNode } from './CallbackTransformer';
+import { LifeCycleEvent, CustomDelegate } from './component/customComponent';
+import { int32 } from '@koalaui/common';
+import { ExtendableComponent } from './component/extendableComponent';
+import { IEnvVariable } from './stateManagement/decoratorImpl/decoratorEnv';
+
+export function setNeedCreate(isNeedCreate: boolean): boolean {
+    const temp = GlobalStateManager.instance._isNeedCreate
+    GlobalStateManager.instance._isNeedCreate = isNeedCreate
+    return temp
+}
+
+@memo
+export function ArkComponentRoot(
+    component: ArkCustomComponent,
+    @memo
+    content: (node: PeerNode) => void
+) {
+    InteropNativeModule._NativeLog(`ArkTS ArkComponentRoot enter`)
+    NodeAttach<ArkCustomComponentRootPeer>(
+        () => {
+            const node = ArkCustomComponentRootPeer.create(component);
+            const func = CallbackTransformer.transformFromCustomBuilder(@memo (): void => {
+                rememberDisposable(() => {
+                    ObserveSingleton.instance.applyTaskDelayMutableStateChange(() => {
+                        const lastRenderingComponent = ObserveSingleton.instance.renderingComponent;
+                        ObserveSingleton.instance.renderingComponent = ObserveSingleton.RenderingComponent;
+                        component.aboutToAppear();
+                        component.__getLifecycle__Internal()?.trigger(LifeCycleEvent.ON_APPEAR);
+                        ObserveSingleton.instance.renderingComponent = lastRenderingComponent;
+                    });
+                    return true;
+                }, (_: boolean | undefined) => {
+                    scheduleCallback(() => {
+                        component.aboutToDisappear();
+                    });
+                });
+                FreeRootNode.current?.setComponent(node.getComponent()?.getInstance());
+                content(node);
+            });
+            node.setCustomNodeBuilder(func);
+            const weakNode = new WeakRef<ArkCustomComponentRootPeer>(node);
+            node.setBuildFunction((): Long => {
+                const root = weakNode.deref();
+                if (!root) {
+                    console.error('node is released when call build function');
+                    return new Long();
+                }
+                const childPeerPtr = root.getChildPeerPtr();
+                if (childPeerPtr === nullptr) {
+                    const ptr = root.callCustomNodeBuilder(root.peer.ptr);
+                    root.setChildPeerPtr(ptr);
+                    return new Long(ptr);
+                } else {
+                    return new Long(childPeerPtr);
+                }
+            });
+            if (component instanceof CustomDelegate && (component as Any as CustomDelegate<ExtendableComponent, Object>).getInstance().checkEnvSetSize()) {
+                const envComponent: ExtendableComponent = (component as Any as CustomDelegate<ExtendableComponent, Object>).getInstance();
+                node.getEnvInstanceId((instanceId: int32): void => {
+                    if (envComponent.getEnvInstance() && envComponent.getEnvInstance() === instanceId) {
+                        return;
+                    }
+                    envComponent.setEnvInstance(instanceId);
+                    const envSet: Set<IEnvVariable> = envComponent.getEnvSet();
+                    for (const envItem of envSet) {
+                        envItem.unRegisterEnv(instanceId);
+                        envItem.registerEnv(instanceId);
+                    }
+                })
+            }
+            return node;
+        },
+        (node: ArkCustomComponentRootPeer) => { }
+    );
+}

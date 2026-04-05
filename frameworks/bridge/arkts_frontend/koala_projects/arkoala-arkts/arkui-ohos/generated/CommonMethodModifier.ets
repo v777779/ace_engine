@@ -1,0 +1,8809 @@
+/*
+ * Copyright (c) 2024-2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+// WARNING! THIS FILE IS AUTO-GENERATED, DO NOT MAKE CHANGES, THEY WILL BE LOST ON NEXT GENERATION!
+
+import { AttributeModifier, DrawModifier, extractors, GestureModifier, GestureType, hookDrawModifier, hookAllowDrop, hookStateStyleImpl, hookGestureModifier, hookCustomPropertyImpl, hookGesture, hookPriorityGesture, hookParallelGesture, hookDragPreviewOptions, hookCommonMethodModifierCustomProperty } from '#handwritten'
+import { AttributeUpdaterFlag } from './AttributeUpdaterFlag'
+import { PeerNode } from './PeerNode'
+import { ArkCommonMethodPeer, LayoutPolicy, Rectangle, ResponseRegion, TouchTestInfo, TouchResult, PixelRoundPolicy, PixelMap, ForegroundEffectOptions, VisualEffect, Filter, BorderImageOption, OutlineStyle, ClickEvent, HoverEvent, Callback as arkui_component_common_Callback, AccessibilityCallback, AccessibilityHoverEvent, AccessibilityTransparentCallback, TouchEvent, MouseEvent, KeyEvent, CrownEvent, FocusAxisEvent, AxisEvent, FocusMovement, AnimateParam, TransitionEffect, MotionBlurOptions, InvertOptions, TranslateOptions, ScaleOptions, RotateOptions, RotateAngleOptions, Matrix4Transit, AlignRuleOption, LocalizedAlignRuleOptions, ClickEffect, DragEvent, DragItemInfo, UniformDataType, PreDragStatus, LinearGradientOptions, SweepGradientOptions, RadialGradientOptions, MotionPathOptions, ShadowOptions, ShadowStyle, ProgressMask, StateStyles, PixelStretchEffectOptions, AccessibilitySamePageMode, AccessibilityRoleType, AccessibilityFocusCallback, AccessibilityActionInterceptCallback, AccessibilityAction, ReuseOptions, BackgroundBrightnessOptions, GestureRecognizerJudgeBeginCallback, ShouldBuiltInRecognizerParallelWithCallback, SizeChangeCallback, TouchTestDoneCallback, SystemUiMaterial, OnNeedSoftkeyboardCallback, CustomProperty, SafeAreaType, SafeAreaEdge, LayoutSafeAreaType, LayoutSafeAreaEdge, BackgroundOptions, BackgroundImageOptions, BlurStyle, BackgroundBlurStyleOptions, SystemAdaptiveOptions, BackgroundEffectOptions, ForegroundBlurStyleOptions, TransitionFinishCallback, BlurOptions, LinearGradientBlurOptions, EffectType, sharedTransitionOptions, ChainStyle, OnDragEventCallback, DropOptions, SpringLoadingContext, DragSpringLoadingConfiguration, PreviewConfiguration, DragPreviewOptions, DragInteractionOptions, OverlayOptions, BlendMode, BlendApplyType, Blender, GeometryTransitionOptions, TipsMessageType, TipsOptions, PopupOptions, CustomPopupOptions, MenuElement, MenuOptions, Bindable, ContextMenuOptions, ModalTransition, ContentCoverOptions, SheetOptions, VisibleAreaChangeCallback, VisibleAreaEventOptions, AreaChangeCallback, AreaChangeOptions, CommonMethod } from './component/common'
+import { int32, int64 } from '@koalaui/common'
+import { ModifierState } from './CommonModifier'
+import { Length, Resource as arkui_component_units_Resource, SizeOptions, ConstraintSizeOptions, ChainWeightOptions, Padding, LocalizedPadding, Margin, LocalizedMargin, ResourceColor, ColorMetrics as arkui_component_units_ColorMetrics, ResourceStr, Position, BorderOptions, EdgeStyles, EdgeWidths, LocalizedEdgeWidths, EdgeColors, LocalizedEdgeColors, OutlineOptions, EdgeOutlineStyles, Dimension, EdgeOutlineWidths, OutlineRadiuses, VoidCallback, Area, Edges, LocalizedEdges, LocalizedPosition, AccessibilityActionOptions, BorderRadiuses, LocalizedBorderRadiuses, AccessibilityOptions } from './component/units'
+import { Resource as global_resource_Resource } from 'global.resource'
+import { HitTestMode, Color as arkui_component_enums_Color, ImageSize, Alignment, BorderStyle, ColoringStrategy, HoverEffect, Visibility, ItemAlign, LocalizedAlignment, Direction, ObscuredReasons, RenderFit, FocusDrawLevel, ImageRepeat, RenderStrategy, Axis, ResponseType, FunctionKey, ModifierKey } from './component/enums'
+import { LengthMetrics as arkui_Graphics_LengthMetrics, ColorMetrics as arkui_Graphics_ColorMetrics } from 'arkui.Graphics'
+import { default as image } from '@ohos.multimedia.image'
+import { ResizableOptions } from './component/image'
+import { default as uiEffect } from '@ohos.graphics.uiEffect'
+import { FocusBoxStyle, FocusPriority } from './component/focus'
+import { default as matrix4 } from '@ohos.matrix4'
+import { CustomBuilder, CustomBuilderT } from './component/builder'
+import { default as uniformTypeDescriptor } from '@ohos.data.uniformTypeDescriptor'
+import { CircleShape, EllipseShape, PathShape, RectShape } from '@ohos.arkui.shape'
+import { GestureInfo, BaseGestureEvent, GestureJudgeResult, GestureRecognizer, TouchRecognizer, GestureMask } from './component/gesture'
+import { default as uiMaterial } from '@ohos.arkui.uiMaterial'
+import { default as dragController } from '@ohos.arkui.dragController'
+import { ComponentContent } from 'arkui.ComponentContent'
+import { StyledString } from './component/styledString'
+export class CommonMethodModifier implements CommonMethod {
+    _instanceId: number = -1;
+    _state: ModifierState = new ModifierState;
+    _addr: ArrayBuffer = new ArrayBuffer(4096);
+    private _flagArray: Uint8Array = new Uint8Array(this._addr);
+    constructor() {
+        this._flagArray.fill(0);
+    }
+    setInstanceId(instanceId: number): void {
+        this._instanceId = instanceId
+    }
+    isUpdater: () => boolean = () => false
+    public _width_0_0value?: Length | LayoutPolicy | undefined
+    public _height_0_0value?: Length | LayoutPolicy | undefined
+    public _drawModifier_0_0value?: DrawModifier | undefined
+    public _responseRegion_0_0value?: Array<Rectangle> | Rectangle | undefined
+    public _mouseResponseRegion_0_0value?: Array<Rectangle> | Rectangle | undefined
+    public _responseRegionList_0_0value?: Array<ResponseRegion> | undefined
+    public _size_0_0value?: SizeOptions | undefined
+    public _constraintSize_0_0value?: ConstraintSizeOptions | undefined
+    public _hitTestBehavior_0_0value?: HitTestMode | undefined
+    public _onChildTouchTest_0_0value?: ((value: Array<TouchTestInfo>) => TouchResult) | undefined
+    public _layoutWeight_0_0value?: double | string | undefined
+    public _chainWeight_0_0value?: ChainWeightOptions | undefined
+    public _padding_0_0value?: Padding | Length | LocalizedPadding | undefined
+    public _safeAreaPadding_0_0value?: Padding | arkui_Graphics_LengthMetrics | LocalizedPadding | undefined
+    public _margin_0_0value?: Margin | Length | LocalizedMargin | undefined
+    public _backgroundColor_0_0value?: ResourceColor | arkui_component_units_ColorMetrics | undefined
+    public _pixelRound_0_0value?: PixelRoundPolicy | undefined
+    public _backgroundImage_0_0value?: ResourceStr | PixelMap | undefined
+    public _backgroundImageSize_0_0value?: SizeOptions | ImageSize | undefined
+    public _backgroundImagePosition_0_0value?: Position | Alignment | undefined
+    public _backgroundImageResizable_0_0value?: ResizableOptions | undefined
+    public _foregroundEffect_0_0value?: ForegroundEffectOptions | undefined
+    public _visualEffect_0_0value?: VisualEffect | undefined
+    public _backgroundFilter_0_0value?: Filter | undefined
+    public _foregroundFilter_0_0value?: Filter | undefined
+    public _compositingFilter_0_0value?: Filter | undefined
+    public _materialFilter_0_0value?: Filter | undefined
+    public _opacity_0_0value?: double | global_resource_Resource | undefined
+    public _border_0_0value?: BorderOptions | undefined
+    public _borderStyle_0_0value?: BorderStyle | EdgeStyles | undefined
+    public _borderWidth_0_0value?: Length | EdgeWidths | LocalizedEdgeWidths | undefined
+    public _borderColor_0_0value?: ResourceColor | EdgeColors | LocalizedEdgeColors | undefined
+    public _borderImage_0_0value?: BorderImageOption | undefined
+    public _outline_0_0value?: OutlineOptions | undefined
+    public _outlineStyle_0_0value?: OutlineStyle | EdgeOutlineStyles | undefined
+    public _outlineWidth_0_0value?: Dimension | EdgeOutlineWidths | undefined
+    public _outlineColor_0_0value?: ResourceColor | EdgeColors | LocalizedEdgeColors | undefined
+    public _outlineRadius_0_0value?: Dimension | OutlineRadiuses | undefined
+    public _foregroundColor_0_0value?: ResourceColor | ColoringStrategy | undefined
+    public _onClick_0_0value?: ((event: ClickEvent) => void) | undefined
+    public _onHover_0_0value?: ((isHover: boolean,event: HoverEvent) => void) | undefined
+    public _onHoverMove_0_0value?: arkui_component_common_Callback<HoverEvent, void> | undefined
+    public _onAccessibilityHover_0_0value?: AccessibilityCallback | undefined
+    public _onAccessibilityHoverTransparent_0_0value?: AccessibilityTransparentCallback | undefined
+    public _hoverEffect_0_0value?: HoverEffect | undefined
+    public _onMouse_0_0value?: ((event: MouseEvent) => void) | undefined
+    public _onTouch_0_0value?: ((event: TouchEvent) => void) | undefined
+    public _onKeyEvent_0_0value?: arkui_component_common_Callback<KeyEvent, boolean> | undefined
+    public _onDigitalCrown_0_0value?: arkui_component_common_Callback<CrownEvent, void> | undefined
+    public _onKeyPreIme_0_0value?: arkui_component_common_Callback<KeyEvent, boolean> | undefined
+    public _onKeyEventDispatch_0_0value?: arkui_component_common_Callback<KeyEvent, boolean> | undefined
+    public _onFocusAxisEvent_0_0value?: arkui_component_common_Callback<FocusAxisEvent, void> | undefined
+    public _onAxisEvent_0_0value?: arkui_component_common_Callback<AxisEvent, void> | undefined
+    public _focusable_0_0value?: boolean | undefined
+    public _nextFocus_0_0value?: FocusMovement | undefined
+    public _tabStop_0_0value?: boolean | undefined
+    public _onFocus_0_0value?: (() => void) | undefined
+    public _onBlur_0_0value?: (() => void) | undefined
+    public _tabIndex_0_0value?: int32 | undefined
+    public _defaultFocus_0_0value?: boolean | undefined
+    public _groupDefaultFocus_0_0value?: boolean | undefined
+    public _focusOnTouch_0_0value?: boolean | undefined
+    public _focusBox_0_0value?: FocusBoxStyle | undefined
+    public _animation_0_0value?: AnimateParam | undefined
+    public _transition_0_0value?: TransitionEffect | undefined
+    public _motionBlur_0_0value?: MotionBlurOptions | undefined
+    public _brightness_0_0value?: double | undefined
+    public _contrast_0_0value?: double | undefined
+    public _grayscale_0_0value?: double | undefined
+    public _colorBlend_0_0value?: arkui_component_enums_Color | string | global_resource_Resource | undefined
+    public _saturate_0_0value?: double | undefined
+    public _sepia_0_0value?: double | undefined
+    public _invert_0_0value?: double | InvertOptions | undefined
+    public _hueRotate_0_0value?: double | string | undefined
+    public _useShadowBatching_0_0value?: boolean | undefined
+    public _useEffect_0_0value?: boolean | undefined
+    public _useUnionEffect_0_0value?: boolean | undefined
+    public _renderGroup_0_0value?: boolean | undefined
+    public _excludeFromRenderGroup_0_0value?: boolean | undefined
+    public _freeze_0_0value?: boolean | undefined
+    public _translate_0_0value?: TranslateOptions | undefined
+    public _scale_0_0value?: ScaleOptions | undefined
+    public _rotate_0_0value?: RotateOptions | RotateAngleOptions | undefined
+    public _transform_0_0value?: Matrix4Transit | undefined
+    public _transform3D_0_0value?: Matrix4Transit | undefined
+    public _onAppear_0_0value?: (() => void) | undefined
+    public _onDisAppear_0_0value?: (() => void) | undefined
+    public _onAttach_0_0value?: VoidCallback | undefined
+    public _onDetach_0_0value?: VoidCallback | undefined
+    public _onAreaChange_0_0value?: ((oldValue: Area,newValue: Area) => void) | undefined
+    public _visibility_0_0value?: Visibility | undefined
+    public _flexGrow_0_0value?: double | undefined
+    public _flexShrink_0_0value?: double | undefined
+    public _flexBasis_0_0value?: double | string | undefined
+    public _alignSelf_0_0value?: ItemAlign | undefined
+    public _layoutGravity_0_0value?: LocalizedAlignment | undefined
+    public _displayPriority_0_0value?: double | undefined
+    public _zIndex_0_0value?: int32 | undefined
+    public _direction_0_0value?: Direction | undefined
+    public _align_0_0value?: Alignment | LocalizedAlignment | undefined
+    public _position_0_0value?: Position | Edges | LocalizedEdges | undefined
+    public _markAnchor_0_0value?: Position | LocalizedPosition | undefined
+    public _offset_0_0value?: Position | Edges | LocalizedEdges | undefined
+    public _enabled_0_0value?: boolean | undefined
+    public _alignRules_0_0value?: AlignRuleOption | LocalizedAlignRuleOptions | undefined
+    public _aspectRatio_0_0value?: double | undefined
+    public _clickEffect_0_0value?: ClickEffect | null | undefined
+    public _enableClickSoundEffect_0_0value?: boolean | undefined
+    public _onDragStart_0_0value?: ((event: DragEvent,extraParams?: string) => CustomBuilder | DragItemInfo) | undefined
+    public _onDragEnter_0_0value?: ((event: DragEvent,extraParams?: string) => void) | undefined
+    public _onDragMove_0_0value?: ((event: DragEvent,extraParams?: string) => void) | undefined
+    public _onDragLeave_0_0value?: ((event: DragEvent,extraParams?: string) => void) | undefined
+    public _onDrop_0_0value?: ((event: DragEvent,extraParams?: string) => void) | undefined
+    public _onDragEnd_0_0value?: ((event: DragEvent,extraParams?: string) => void) | undefined
+    public _allowDrop_0_0value?: Array<UniformDataType> | Array<string> | null | undefined
+    public _draggable_0_0value?: boolean | undefined
+    public _onPreDrag_0_0value?: arkui_component_common_Callback<PreDragStatus, void> | undefined
+    public _linearGradient_0_0value?: LinearGradientOptions | undefined
+    public _sweepGradient_0_0value?: SweepGradientOptions | undefined
+    public _radialGradient_0_0value?: RadialGradientOptions | undefined
+    public _motionPath_0_0value?: MotionPathOptions | undefined
+    public _shadow_0_0value?: ShadowOptions | ShadowStyle | undefined
+    public _clip_0_0value?: boolean | undefined
+    public _clipShape_0_0value?: CircleShape | EllipseShape | PathShape | RectShape | undefined
+    public _mask_0_0value?: ProgressMask | undefined
+    public _maskShape_0_0value?: CircleShape | EllipseShape | PathShape | RectShape | undefined
+    public _key_0_0value?: string | undefined
+    public _id_0_0value?: string | undefined
+    public _stateStyles_0_0value?: StateStyles | undefined
+    public _restoreId_0_0value?: int32 | undefined
+    public _sphericalEffect_0_0value?: double | undefined
+    public _lightUpEffect_0_0value?: double | undefined
+    public _pixelStretchEffect_0_0value?: PixelStretchEffectOptions | undefined
+    public _accessibilityNextFocusId_0_0value?: string | undefined
+    public _accessibilityDefaultFocus_0_0value?: boolean | undefined
+    public _accessibilityUseSamePage_0_0value?: AccessibilitySamePageMode | undefined
+    public _accessibilityScrollTriggerable_0_0value?: boolean | undefined
+    public _accessibilityText_0_0value?: global_resource_Resource | string | undefined
+    public _accessibilityRole_0_0value?: AccessibilityRoleType | undefined
+    public _onAccessibilityFocus_0_0value?: AccessibilityFocusCallback | undefined
+    public _onAccessibilityActionIntercept_0_0value?: AccessibilityActionInterceptCallback | undefined
+    public _accessibilityTextHint_0_0value?: string | undefined
+    public _accessibilityDescription_0_0value?: global_resource_Resource | string | undefined
+    public _accessibilityLevel_0_0value?: string | undefined
+    public _accessibilityVirtualNode_0_0value?: CustomBuilder | undefined
+    public _accessibilityChecked_0_0value?: boolean | undefined
+    public _accessibilitySelected_0_0value?: boolean | undefined
+    public _obscured_0_0value?: Array<ObscuredReasons> | undefined
+    public _reuseId_0_0value?: string | undefined
+    public _reuse_0_0value?: ReuseOptions | undefined
+    public _renderFit_0_0value?: RenderFit | undefined
+    public _gestureModifier_0_0value?: GestureModifier | undefined
+    public _backgroundBrightness_0_0value?: BackgroundBrightnessOptions | undefined
+    public _onGestureJudgeBegin_0_0value?: ((gestureInfo: GestureInfo,event: BaseGestureEvent) => GestureJudgeResult) | undefined
+    public _onGestureRecognizerJudgeBegin_0_0value?: GestureRecognizerJudgeBeginCallback | undefined
+    public _shouldBuiltInRecognizerParallelWith_0_0value?: ShouldBuiltInRecognizerParallelWithCallback | undefined
+    public _monopolizeEvents_0_0value?: boolean | undefined
+    public _onTouchIntercept_0_0value?: arkui_component_common_Callback<TouchEvent, HitTestMode> | undefined
+    public _onSizeChange_0_0value?: SizeChangeCallback | undefined
+    public _accessibilityFocusDrawLevel_0_0value?: FocusDrawLevel | undefined
+    public _onTouchTestDone_0_0value?: TouchTestDoneCallback | undefined
+    public _systemMaterial_0_0value?: SystemUiMaterial | undefined
+    public _onNeedSoftkeyboard_0_0value?: OnNeedSoftkeyboardCallback | undefined
+    public _accessibilityStateDescription_0_0value?: string | global_resource_Resource | undefined
+    public _accessibilityActionOptions_0_0value?: AccessibilityActionOptions | undefined
+    public _customProperty_0_0value?: string
+    public _customProperty_0_1value?: CustomProperty
+    public _expandSafeArea_0_0value?: Array<SafeAreaType> | undefined
+    public _expandSafeArea_0_1value?: Array<SafeAreaEdge> | undefined
+    public _ignoreLayoutSafeArea_0_0value?: Array<LayoutSafeAreaType> | undefined
+    public _ignoreLayoutSafeArea_0_1value?: Array<LayoutSafeAreaEdge> | undefined
+    public _background_0_0value?: CustomBuilder | ResourceColor | undefined
+    public _background_0_1value?: BackgroundOptions | undefined
+    public _backgroundImage_1_0value?: ResourceStr | PixelMap | undefined
+    public _backgroundImage_1_1value?: BackgroundImageOptions
+    public _backgroundImage_2_0value?: ResourceStr | PixelMap | undefined
+    public _backgroundImage_2_1value?: ImageRepeat
+    public _backgroundBlurStyle_0_0value?: BlurStyle | undefined
+    public _backgroundBlurStyle_0_1value?: BackgroundBlurStyleOptions | undefined
+    public _backgroundBlurStyle_0_2value?: SystemAdaptiveOptions | undefined
+    public _backgroundEffect_0_0value?: BackgroundEffectOptions | undefined
+    public _backgroundEffect_0_1value?: SystemAdaptiveOptions | undefined
+    public _foregroundBlurStyle_0_0value?: BlurStyle | undefined
+    public _foregroundBlurStyle_0_1value?: ForegroundBlurStyleOptions | undefined
+    public _foregroundBlurStyle_0_2value?: SystemAdaptiveOptions | undefined
+    public _borderRadius_0_0value?: Length | BorderRadiuses | LocalizedBorderRadiuses | undefined
+    public _borderRadius_0_1value?: RenderStrategy | undefined
+    public _onClick_1_0value?: ((event: ClickEvent) => void) | undefined
+    public _onClick_1_1value?: double | undefined
+    public _focusScopeId_0_0value?: string | undefined
+    public _focusScopeId_0_1value?: boolean | undefined
+    public _focusScopeId_0_2value?: boolean | undefined
+    public _focusScopePriority_0_0value?: string | undefined
+    public _focusScopePriority_0_1value?: FocusPriority | undefined
+    public _transition_1_0value?: TransitionEffect | undefined
+    public _transition_1_1value?: TransitionFinishCallback | undefined
+    public _gesture_0_0value?: GestureType
+    public _gesture_0_1value?: GestureMask | undefined
+    public _priorityGesture_0_0value?: GestureType
+    public _priorityGesture_0_1value?: GestureMask | undefined
+    public _parallelGesture_0_0value?: GestureType
+    public _parallelGesture_0_1value?: GestureMask | undefined
+    public _blur_0_0value?: double | undefined
+    public _blur_0_1value?: BlurOptions | undefined
+    public _blur_0_2value?: SystemAdaptiveOptions | undefined
+    public _linearGradientBlur_0_0value?: double | undefined
+    public _linearGradientBlur_0_1value?: LinearGradientBlurOptions | undefined
+    public _useEffect_1_0value?: boolean | undefined
+    public _useEffect_1_1value?: EffectType | undefined
+    public _backdropBlur_0_0value?: double | undefined
+    public _backdropBlur_0_1value?: BlurOptions | undefined
+    public _backdropBlur_0_2value?: SystemAdaptiveOptions | undefined
+    public _sharedTransition_0_0value?: string | undefined
+    public _sharedTransition_0_1value?: sharedTransitionOptions | undefined
+    public _chainMode_0_0value?: Axis | undefined
+    public _chainMode_0_1value?: ChainStyle | undefined
+    public _onDrop_1_0value?: OnDragEventCallback | undefined
+    public _onDrop_1_1value?: DropOptions
+    public _onDragSpringLoading_0_0value?: arkui_component_common_Callback<SpringLoadingContext, void> | null | undefined
+    public _onDragSpringLoading_0_1value?: DragSpringLoadingConfiguration | undefined
+    public _dragPreview_0_0value?: CustomBuilder | DragItemInfo | string | undefined
+    public _dragPreview_0_1value?: PreviewConfiguration | undefined
+    public _dragPreviewOptions_0_0value?: DragPreviewOptions | undefined
+    public _dragPreviewOptions_0_1value?: DragInteractionOptions | undefined
+    public _overlay_0_0value?: string | CustomBuilder | ComponentContent<Object> | undefined
+    public _overlay_0_1value?: OverlayOptions | undefined
+    public _blendMode_0_0value?: BlendMode | undefined
+    public _blendMode_0_1value?: BlendApplyType | undefined
+    public _advancedBlendMode_0_0value?: BlendMode | Blender | undefined
+    public _advancedBlendMode_0_1value?: BlendApplyType | undefined
+    public _geometryTransition_0_0value?: string | undefined
+    public _geometryTransition_0_1value?: GeometryTransitionOptions | undefined
+    public _bindTips_0_0value?: TipsMessageType | undefined
+    public _bindTips_0_1value?: TipsOptions | undefined
+    public _bindPopup_0_0value?: boolean | undefined
+    public _bindPopup_0_1value?: PopupOptions | CustomPopupOptions | undefined
+    public _bindMenu_0_0value?: Array<MenuElement> | CustomBuilder | undefined
+    public _bindMenu_0_1value?: MenuOptions | undefined
+    public _bindMenu_1_0value?: boolean | Bindable<boolean> | undefined
+    public _bindMenu_1_1value?: Array<MenuElement> | CustomBuilder | undefined
+    public _bindMenu_1_2value?: MenuOptions | undefined
+    public _bindContextMenu_0_0value?: CustomBuilder | undefined
+    public _bindContextMenu_0_1value?: ResponseType | undefined
+    public _bindContextMenu_0_2value?: ContextMenuOptions | undefined
+    public _bindContextMenuWithResponse_0_0value?: CustomBuilderT<ResponseType> | undefined
+    public _bindContextMenuWithResponse_0_1value?: ContextMenuOptions | undefined
+    public _bindContextMenu_1_0value?: boolean | Bindable<boolean> | undefined
+    public _bindContextMenu_1_1value?: CustomBuilder | undefined
+    public _bindContextMenu_1_2value?: ContextMenuOptions | undefined
+    public _bindContentCover_0_0value?: boolean | Bindable<boolean> | undefined
+    public _bindContentCover_0_1value?: CustomBuilder | undefined
+    public _bindContentCover_0_2value?: ModalTransition | undefined
+    public _bindContentCover_1_0value?: boolean | Bindable<boolean> | undefined
+    public _bindContentCover_1_1value?: CustomBuilder | undefined
+    public _bindContentCover_1_2value?: ContentCoverOptions | undefined
+    public _bindSheet_0_0value?: boolean | Bindable<boolean> | undefined
+    public _bindSheet_0_1value?: CustomBuilder | undefined
+    public _bindSheet_0_2value?: SheetOptions | undefined
+    public _onVisibleAreaChange_0_0value?: Array<double> | undefined
+    public _onVisibleAreaChange_0_1value?: VisibleAreaChangeCallback | undefined
+    public _onVisibleAreaApproximateChange_0_0value?: VisibleAreaEventOptions | undefined
+    public _onVisibleAreaApproximateChange_0_1value?: VisibleAreaChangeCallback | undefined
+    public _keyboardShortcut_0_0value?: string | FunctionKey | undefined
+    public _keyboardShortcut_0_1value?: Array<ModifierKey> | undefined
+    public _keyboardShortcut_0_2value?: (() => void) | undefined
+    public _accessibilityGroup_0_0value?: boolean | undefined
+    public _accessibilityGroup_0_1value?: AccessibilityOptions | undefined
+    public _onGestureRecognizerJudgeBegin_1_0value?: GestureRecognizerJudgeBeginCallback | undefined
+    public _onGestureRecognizerJudgeBegin_1_1value?: boolean | undefined
+    public _debugLine_0_0value?: string
+    public _debugLine_0_1value?: string | undefined
+    public _onAreaChange_1_0value?: AreaChangeCallback
+    public _onAreaChange_1_1value?: AreaChangeOptions | undefined
+    public _toolbar_0_0value?: CustomBuilder | undefined
+    applyModifierPatch(node: object): void {
+        this._state.addRef()
+        const peer = node as ArkCommonMethodPeer;
+        const flagArray = this._flagArray;
+        this.applyModifierPatch0(peer, flagArray);
+        this.applyModifierPatch1(peer, flagArray);
+        this.applyModifierPatch2(peer, flagArray);
+        this.applyModifierPatch3(peer, flagArray);
+        this.applyModifierPatch4(peer, flagArray);
+        this.applyModifierPatch5(peer, flagArray);
+        this.applyModifierPatch6(peer, flagArray);
+        this.applyModifierPatch7(peer, flagArray);
+        this.applyModifierPatch8(peer, flagArray);
+        this.applyModifierPatch9(peer, flagArray);
+        this.applyModifierPatch10(peer, flagArray);
+    }
+    applyModifierPatch0(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[0] != 0) {
+            switch (flagArray[0]) {
+                case 1: {
+                    peer.setWidthAttribute((this._width_0_0value as Length | LayoutPolicy | undefined));
+                    flagArray[0] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[0] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[0] = 0;
+                    peer.setWidthAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[1] != 0) {
+            switch (flagArray[1]) {
+                case 1: {
+                    peer.setHeightAttribute((this._height_0_0value as Length | LayoutPolicy | undefined));
+                    flagArray[1] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[1] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[1] = 0;
+                    peer.setHeightAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[2] != 0) {
+            switch (flagArray[2]) {
+                case 1: {
+                    hookDrawModifier(peer, (this._drawModifier_0_0value as DrawModifier | undefined));
+                    flagArray[2] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[2] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[2] = 0;
+                    hookDrawModifier(peer, undefined);
+                }
+            }
+        }
+        if (flagArray[3] != 0) {
+            switch (flagArray[3]) {
+                case 1: {
+                    peer.setResponseRegionAttribute((this._responseRegion_0_0value as Array<Rectangle> | Rectangle | undefined));
+                    flagArray[3] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[3] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[3] = 0;
+                    peer.setResponseRegionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[4] != 0) {
+            switch (flagArray[4]) {
+                case 1: {
+                    peer.setMouseResponseRegionAttribute((this._mouseResponseRegion_0_0value as Array<Rectangle> | Rectangle | undefined));
+                    flagArray[4] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[4] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[4] = 0;
+                    peer.setMouseResponseRegionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[5] != 0) {
+            switch (flagArray[5]) {
+                case 1: {
+                    peer.setResponseRegionListAttribute((this._responseRegionList_0_0value as Array<ResponseRegion> | undefined));
+                    flagArray[5] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[5] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[5] = 0;
+                    peer.setResponseRegionListAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[6] != 0) {
+            switch (flagArray[6]) {
+                case 1: {
+                    peer.setSizeAttribute((this._size_0_0value as SizeOptions | undefined));
+                    flagArray[6] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[6] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[6] = 0;
+                    peer.setSizeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[7] != 0) {
+            switch (flagArray[7]) {
+                case 1: {
+                    peer.setConstraintSizeAttribute((this._constraintSize_0_0value as ConstraintSizeOptions | undefined));
+                    flagArray[7] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[7] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[7] = 0;
+                    peer.setConstraintSizeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[8] != 0) {
+            switch (flagArray[8]) {
+                case 1: {
+                    peer.setHitTestBehaviorAttribute((this._hitTestBehavior_0_0value as HitTestMode | undefined));
+                    flagArray[8] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[8] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[8] = 0;
+                    peer.setHitTestBehaviorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[9] != 0) {
+            switch (flagArray[9]) {
+                case 1: {
+                    peer.setOnChildTouchTestAttribute((this._onChildTouchTest_0_0value as ((value: Array<TouchTestInfo>) => TouchResult) | undefined));
+                    flagArray[9] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[9] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[9] = 0;
+                    peer.setOnChildTouchTestAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[10] != 0) {
+            switch (flagArray[10]) {
+                case 1: {
+                    peer.setLayoutWeightAttribute((this._layoutWeight_0_0value as double | string | undefined));
+                    flagArray[10] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[10] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[10] = 0;
+                    peer.setLayoutWeightAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[11] != 0) {
+            switch (flagArray[11]) {
+                case 1: {
+                    peer.setChainWeightAttribute((this._chainWeight_0_0value as ChainWeightOptions | undefined));
+                    flagArray[11] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[11] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[11] = 0;
+                    peer.setChainWeightAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[12] != 0) {
+            switch (flagArray[12]) {
+                case 1: {
+                    peer.setPaddingAttribute((this._padding_0_0value as Padding | Length | LocalizedPadding | undefined));
+                    flagArray[12] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[12] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[12] = 0;
+                    peer.setPaddingAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[13] != 0) {
+            switch (flagArray[13]) {
+                case 1: {
+                    peer.setSafeAreaPaddingAttribute((this._safeAreaPadding_0_0value as Padding | arkui_Graphics_LengthMetrics | LocalizedPadding | undefined));
+                    flagArray[13] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[13] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[13] = 0;
+                    peer.setSafeAreaPaddingAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[14] != 0) {
+            switch (flagArray[14]) {
+                case 1: {
+                    peer.setMarginAttribute((this._margin_0_0value as Margin | Length | LocalizedMargin | undefined));
+                    flagArray[14] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[14] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[14] = 0;
+                    peer.setMarginAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[15] != 0) {
+            switch (flagArray[15]) {
+                case 1: {
+                    peer.setBackgroundColorAttribute((this._backgroundColor_0_0value as ResourceColor | arkui_component_units_ColorMetrics | undefined));
+                    flagArray[15] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[15] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[15] = 0;
+                    peer.setBackgroundColorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[16] != 0) {
+            switch (flagArray[16]) {
+                case 1: {
+                    peer.setPixelRoundAttribute((this._pixelRound_0_0value as PixelRoundPolicy | undefined));
+                    flagArray[16] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[16] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[16] = 0;
+                    peer.setPixelRoundAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[17] != 0) {
+            switch (flagArray[17]) {
+                case 1: {
+                    peer.setBackgroundImage0Attribute((this._backgroundImage_0_0value as ResourceStr | PixelMap | undefined));
+                    flagArray[17] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[17] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[17] = 0;
+                    peer.setBackgroundImage0Attribute(undefined);
+                }
+            }
+        }
+        if (flagArray[18] != 0) {
+            switch (flagArray[18]) {
+                case 1: {
+                    peer.setBackgroundImageSizeAttribute((this._backgroundImageSize_0_0value as SizeOptions | ImageSize | undefined));
+                    flagArray[18] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[18] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[18] = 0;
+                    peer.setBackgroundImageSizeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[19] != 0) {
+            switch (flagArray[19]) {
+                case 1: {
+                    peer.setBackgroundImagePositionAttribute((this._backgroundImagePosition_0_0value as Position | Alignment | undefined));
+                    flagArray[19] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[19] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[19] = 0;
+                    peer.setBackgroundImagePositionAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch1(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[20] != 0) {
+            switch (flagArray[20]) {
+                case 1: {
+                    peer.setBackgroundImageResizableAttribute((this._backgroundImageResizable_0_0value as ResizableOptions | undefined));
+                    flagArray[20] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[20] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[20] = 0;
+                    peer.setBackgroundImageResizableAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[21] != 0) {
+            switch (flagArray[21]) {
+                case 1: {
+                    peer.setForegroundEffectAttribute((this._foregroundEffect_0_0value as ForegroundEffectOptions | undefined));
+                    flagArray[21] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[21] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[21] = 0;
+                    peer.setForegroundEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[22] != 0) {
+            switch (flagArray[22]) {
+                case 1: {
+                    peer.setVisualEffectAttribute((this._visualEffect_0_0value as VisualEffect | undefined));
+                    flagArray[22] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[22] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[22] = 0;
+                    peer.setVisualEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[23] != 0) {
+            switch (flagArray[23]) {
+                case 1: {
+                    peer.setBackgroundFilterAttribute((this._backgroundFilter_0_0value as Filter | undefined));
+                    flagArray[23] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[23] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[23] = 0;
+                    peer.setBackgroundFilterAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[24] != 0) {
+            switch (flagArray[24]) {
+                case 1: {
+                    peer.setForegroundFilterAttribute((this._foregroundFilter_0_0value as Filter | undefined));
+                    flagArray[24] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[24] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[24] = 0;
+                    peer.setForegroundFilterAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[25] != 0) {
+            switch (flagArray[25]) {
+                case 1: {
+                    peer.setCompositingFilterAttribute((this._compositingFilter_0_0value as Filter | undefined));
+                    flagArray[25] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[25] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[25] = 0;
+                    peer.setCompositingFilterAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[26] != 0) {
+            switch (flagArray[26]) {
+                case 1: {
+                    peer.setMaterialFilterAttribute((this._materialFilter_0_0value as Filter | undefined));
+                    flagArray[26] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[26] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[26] = 0;
+                    peer.setMaterialFilterAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[27] != 0) {
+            switch (flagArray[27]) {
+                case 1: {
+                    peer.setOpacityAttribute((this._opacity_0_0value as double | global_resource_Resource | undefined));
+                    flagArray[27] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[27] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[27] = 0;
+                    peer.setOpacityAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[28] != 0) {
+            switch (flagArray[28]) {
+                case 1: {
+                    peer.setBorderAttribute((this._border_0_0value as BorderOptions | undefined));
+                    flagArray[28] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[28] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[28] = 0;
+                    peer.setBorderAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[29] != 0) {
+            switch (flagArray[29]) {
+                case 1: {
+                    peer.setBorderStyleAttribute((this._borderStyle_0_0value as BorderStyle | EdgeStyles | undefined));
+                    flagArray[29] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[29] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[29] = 0;
+                    peer.setBorderStyleAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[30] != 0) {
+            switch (flagArray[30]) {
+                case 1: {
+                    peer.setBorderWidthAttribute((this._borderWidth_0_0value as Length | EdgeWidths | LocalizedEdgeWidths | undefined));
+                    flagArray[30] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[30] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[30] = 0;
+                    peer.setBorderWidthAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[31] != 0) {
+            switch (flagArray[31]) {
+                case 1: {
+                    peer.setBorderColorAttribute((this._borderColor_0_0value as ResourceColor | EdgeColors | LocalizedEdgeColors | undefined));
+                    flagArray[31] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[31] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[31] = 0;
+                    peer.setBorderColorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[32] != 0) {
+            switch (flagArray[32]) {
+                case 1: {
+                    peer.setBorderImageAttribute((this._borderImage_0_0value as BorderImageOption | undefined));
+                    flagArray[32] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[32] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[32] = 0;
+                    peer.setBorderImageAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[33] != 0) {
+            switch (flagArray[33]) {
+                case 1: {
+                    peer.setOutlineAttribute((this._outline_0_0value as OutlineOptions | undefined));
+                    flagArray[33] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[33] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[33] = 0;
+                    peer.setOutlineAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[34] != 0) {
+            switch (flagArray[34]) {
+                case 1: {
+                    peer.setOutlineStyleAttribute((this._outlineStyle_0_0value as OutlineStyle | EdgeOutlineStyles | undefined));
+                    flagArray[34] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[34] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[34] = 0;
+                    peer.setOutlineStyleAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[35] != 0) {
+            switch (flagArray[35]) {
+                case 1: {
+                    peer.setOutlineWidthAttribute((this._outlineWidth_0_0value as Dimension | EdgeOutlineWidths | undefined));
+                    flagArray[35] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[35] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[35] = 0;
+                    peer.setOutlineWidthAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[36] != 0) {
+            switch (flagArray[36]) {
+                case 1: {
+                    peer.setOutlineColorAttribute((this._outlineColor_0_0value as ResourceColor | EdgeColors | LocalizedEdgeColors | undefined));
+                    flagArray[36] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[36] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[36] = 0;
+                    peer.setOutlineColorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[37] != 0) {
+            switch (flagArray[37]) {
+                case 1: {
+                    peer.setOutlineRadiusAttribute((this._outlineRadius_0_0value as Dimension | OutlineRadiuses | undefined));
+                    flagArray[37] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[37] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[37] = 0;
+                    peer.setOutlineRadiusAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[38] != 0) {
+            switch (flagArray[38]) {
+                case 1: {
+                    peer.setForegroundColorAttribute((this._foregroundColor_0_0value as ResourceColor | ColoringStrategy | undefined));
+                    flagArray[38] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[38] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[38] = 0;
+                    peer.setForegroundColorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[39] != 0) {
+            switch (flagArray[39]) {
+                case 1: {
+                    peer.setOnClick0Attribute((this._onClick_0_0value as ((event: ClickEvent) => void) | undefined));
+                    flagArray[39] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[39] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[39] = 0;
+                    peer.setOnClick0Attribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch2(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[40] != 0) {
+            switch (flagArray[40]) {
+                case 1: {
+                    peer.setOnHoverAttribute((this._onHover_0_0value as ((isHover: boolean,event: HoverEvent) => void) | undefined));
+                    flagArray[40] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[40] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[40] = 0;
+                    peer.setOnHoverAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[41] != 0) {
+            switch (flagArray[41]) {
+                case 1: {
+                    peer.setOnHoverMoveAttribute((this._onHoverMove_0_0value as arkui_component_common_Callback<HoverEvent, void> | undefined));
+                    flagArray[41] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[41] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[41] = 0;
+                    peer.setOnHoverMoveAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[42] != 0) {
+            switch (flagArray[42]) {
+                case 1: {
+                    peer.setOnAccessibilityHoverAttribute((this._onAccessibilityHover_0_0value as AccessibilityCallback | undefined));
+                    flagArray[42] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[42] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[42] = 0;
+                    peer.setOnAccessibilityHoverAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[43] != 0) {
+            switch (flagArray[43]) {
+                case 1: {
+                    peer.setOnAccessibilityHoverTransparentAttribute((this._onAccessibilityHoverTransparent_0_0value as AccessibilityTransparentCallback | undefined));
+                    flagArray[43] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[43] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[43] = 0;
+                    peer.setOnAccessibilityHoverTransparentAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[44] != 0) {
+            switch (flagArray[44]) {
+                case 1: {
+                    peer.setHoverEffectAttribute((this._hoverEffect_0_0value as HoverEffect | undefined));
+                    flagArray[44] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[44] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[44] = 0;
+                    peer.setHoverEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[45] != 0) {
+            switch (flagArray[45]) {
+                case 1: {
+                    peer.setOnMouseAttribute((this._onMouse_0_0value as ((event: MouseEvent) => void) | undefined));
+                    flagArray[45] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[45] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[45] = 0;
+                    peer.setOnMouseAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[46] != 0) {
+            switch (flagArray[46]) {
+                case 1: {
+                    peer.setOnTouchAttribute((this._onTouch_0_0value as ((event: TouchEvent) => void) | undefined));
+                    flagArray[46] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[46] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[46] = 0;
+                    peer.setOnTouchAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[47] != 0) {
+            switch (flagArray[47]) {
+                case 1: {
+                    peer.setOnKeyEventAttribute((this._onKeyEvent_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    flagArray[47] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[47] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[47] = 0;
+                    peer.setOnKeyEventAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[48] != 0) {
+            switch (flagArray[48]) {
+                case 1: {
+                    peer.setOnDigitalCrownAttribute((this._onDigitalCrown_0_0value as arkui_component_common_Callback<CrownEvent, void> | undefined));
+                    flagArray[48] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[48] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[48] = 0;
+                    peer.setOnDigitalCrownAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[49] != 0) {
+            switch (flagArray[49]) {
+                case 1: {
+                    peer.setOnKeyPreImeAttribute((this._onKeyPreIme_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    flagArray[49] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[49] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[49] = 0;
+                    peer.setOnKeyPreImeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[50] != 0) {
+            switch (flagArray[50]) {
+                case 1: {
+                    peer.setOnKeyEventDispatchAttribute((this._onKeyEventDispatch_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    flagArray[50] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[50] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[50] = 0;
+                    peer.setOnKeyEventDispatchAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[51] != 0) {
+            switch (flagArray[51]) {
+                case 1: {
+                    peer.setOnFocusAxisEventAttribute((this._onFocusAxisEvent_0_0value as arkui_component_common_Callback<FocusAxisEvent, void> | undefined));
+                    flagArray[51] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[51] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[51] = 0;
+                    peer.setOnFocusAxisEventAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[52] != 0) {
+            switch (flagArray[52]) {
+                case 1: {
+                    peer.setOnAxisEventAttribute((this._onAxisEvent_0_0value as arkui_component_common_Callback<AxisEvent, void> | undefined));
+                    flagArray[52] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[52] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[52] = 0;
+                    peer.setOnAxisEventAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[53] != 0) {
+            switch (flagArray[53]) {
+                case 1: {
+                    peer.setFocusableAttribute((this._focusable_0_0value as boolean | undefined));
+                    flagArray[53] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[53] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[53] = 0;
+                    peer.setFocusableAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[54] != 0) {
+            switch (flagArray[54]) {
+                case 1: {
+                    peer.setNextFocusAttribute((this._nextFocus_0_0value as FocusMovement | undefined));
+                    flagArray[54] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[54] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[54] = 0;
+                    peer.setNextFocusAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[55] != 0) {
+            switch (flagArray[55]) {
+                case 1: {
+                    peer.setTabStopAttribute((this._tabStop_0_0value as boolean | undefined));
+                    flagArray[55] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[55] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[55] = 0;
+                    peer.setTabStopAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[56] != 0) {
+            switch (flagArray[56]) {
+                case 1: {
+                    peer.setOnFocusAttribute((this._onFocus_0_0value as (() => void) | undefined));
+                    flagArray[56] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[56] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[56] = 0;
+                    peer.setOnFocusAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[57] != 0) {
+            switch (flagArray[57]) {
+                case 1: {
+                    peer.setOnBlurAttribute((this._onBlur_0_0value as (() => void) | undefined));
+                    flagArray[57] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[57] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[57] = 0;
+                    peer.setOnBlurAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[58] != 0) {
+            switch (flagArray[58]) {
+                case 1: {
+                    peer.setTabIndexAttribute((this._tabIndex_0_0value as int32 | undefined));
+                    flagArray[58] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[58] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[58] = 0;
+                    peer.setTabIndexAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[59] != 0) {
+            switch (flagArray[59]) {
+                case 1: {
+                    peer.setDefaultFocusAttribute((this._defaultFocus_0_0value as boolean | undefined));
+                    flagArray[59] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[59] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[59] = 0;
+                    peer.setDefaultFocusAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch3(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[60] != 0) {
+            switch (flagArray[60]) {
+                case 1: {
+                    peer.setGroupDefaultFocusAttribute((this._groupDefaultFocus_0_0value as boolean | undefined));
+                    flagArray[60] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[60] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[60] = 0;
+                    peer.setGroupDefaultFocusAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[61] != 0) {
+            switch (flagArray[61]) {
+                case 1: {
+                    peer.setFocusOnTouchAttribute((this._focusOnTouch_0_0value as boolean | undefined));
+                    flagArray[61] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[61] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[61] = 0;
+                    peer.setFocusOnTouchAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[62] != 0) {
+            switch (flagArray[62]) {
+                case 1: {
+                    peer.setFocusBoxAttribute((this._focusBox_0_0value as FocusBoxStyle | undefined));
+                    flagArray[62] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[62] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[62] = 0;
+                    peer.setFocusBoxAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[63] != 0) {
+            switch (flagArray[63]) {
+                case 1: {
+                    peer.setAnimationAttribute((this._animation_0_0value as AnimateParam | undefined));
+                    flagArray[63] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[63] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[63] = 0;
+                    peer.setAnimationAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[64] != 0) {
+            switch (flagArray[64]) {
+                case 1: {
+                    peer.setTransition0Attribute((this._transition_0_0value as TransitionEffect | undefined));
+                    flagArray[64] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[64] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[64] = 0;
+                    peer.setTransition0Attribute(undefined);
+                }
+            }
+        }
+        if (flagArray[65] != 0) {
+            switch (flagArray[65]) {
+                case 1: {
+                    peer.setMotionBlurAttribute((this._motionBlur_0_0value as MotionBlurOptions | undefined));
+                    flagArray[65] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[65] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[65] = 0;
+                    peer.setMotionBlurAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[66] != 0) {
+            switch (flagArray[66]) {
+                case 1: {
+                    peer.setBrightnessAttribute((this._brightness_0_0value as double | undefined));
+                    flagArray[66] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[66] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[66] = 0;
+                    peer.setBrightnessAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[67] != 0) {
+            switch (flagArray[67]) {
+                case 1: {
+                    peer.setContrastAttribute((this._contrast_0_0value as double | undefined));
+                    flagArray[67] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[67] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[67] = 0;
+                    peer.setContrastAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[68] != 0) {
+            switch (flagArray[68]) {
+                case 1: {
+                    peer.setGrayscaleAttribute((this._grayscale_0_0value as double | undefined));
+                    flagArray[68] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[68] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[68] = 0;
+                    peer.setGrayscaleAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[69] != 0) {
+            switch (flagArray[69]) {
+                case 1: {
+                    peer.setColorBlendAttribute((this._colorBlend_0_0value as arkui_component_enums_Color | string | global_resource_Resource | undefined));
+                    flagArray[69] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[69] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[69] = 0;
+                    peer.setColorBlendAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[70] != 0) {
+            switch (flagArray[70]) {
+                case 1: {
+                    peer.setSaturateAttribute((this._saturate_0_0value as double | undefined));
+                    flagArray[70] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[70] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[70] = 0;
+                    peer.setSaturateAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[71] != 0) {
+            switch (flagArray[71]) {
+                case 1: {
+                    peer.setSepiaAttribute((this._sepia_0_0value as double | undefined));
+                    flagArray[71] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[71] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[71] = 0;
+                    peer.setSepiaAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[72] != 0) {
+            switch (flagArray[72]) {
+                case 1: {
+                    peer.setInvertAttribute((this._invert_0_0value as double | InvertOptions | undefined));
+                    flagArray[72] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[72] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[72] = 0;
+                    peer.setInvertAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[73] != 0) {
+            switch (flagArray[73]) {
+                case 1: {
+                    peer.setHueRotateAttribute((this._hueRotate_0_0value as double | string | undefined));
+                    flagArray[73] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[73] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[73] = 0;
+                    peer.setHueRotateAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[74] != 0) {
+            switch (flagArray[74]) {
+                case 1: {
+                    peer.setUseShadowBatchingAttribute((this._useShadowBatching_0_0value as boolean | undefined));
+                    flagArray[74] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[74] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[74] = 0;
+                    peer.setUseShadowBatchingAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[75] != 0) {
+            switch (flagArray[75]) {
+                case 1: {
+                    peer.setUseEffect0Attribute((this._useEffect_0_0value as boolean | undefined));
+                    flagArray[75] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[75] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[75] = 0;
+                    peer.setUseEffect0Attribute(undefined);
+                }
+            }
+        }
+        if (flagArray[76] != 0) {
+            switch (flagArray[76]) {
+                case 1: {
+                    peer.setUseUnionEffectAttribute((this._useUnionEffect_0_0value as boolean | undefined));
+                    flagArray[76] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[76] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[76] = 0;
+                    peer.setUseUnionEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[77] != 0) {
+            switch (flagArray[77]) {
+                case 1: {
+                    peer.setRenderGroupAttribute((this._renderGroup_0_0value as boolean | undefined));
+                    flagArray[77] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[77] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[77] = 0;
+                    peer.setRenderGroupAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[78] != 0) {
+            switch (flagArray[78]) {
+                case 1: {
+                    peer.setExcludeFromRenderGroupAttribute((this._excludeFromRenderGroup_0_0value as boolean | undefined));
+                    flagArray[78] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[78] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[78] = 0;
+                    peer.setExcludeFromRenderGroupAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[79] != 0) {
+            switch (flagArray[79]) {
+                case 1: {
+                    peer.setFreezeAttribute((this._freeze_0_0value as boolean | undefined));
+                    flagArray[79] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[79] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[79] = 0;
+                    peer.setFreezeAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch4(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[80] != 0) {
+            switch (flagArray[80]) {
+                case 1: {
+                    peer.setTranslateAttribute((this._translate_0_0value as TranslateOptions | undefined));
+                    flagArray[80] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[80] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[80] = 0;
+                    peer.setTranslateAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[81] != 0) {
+            switch (flagArray[81]) {
+                case 1: {
+                    peer.setScaleAttribute((this._scale_0_0value as ScaleOptions | undefined));
+                    flagArray[81] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[81] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[81] = 0;
+                    peer.setScaleAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[82] != 0) {
+            switch (flagArray[82]) {
+                case 1: {
+                    peer.setRotateAttribute((this._rotate_0_0value as RotateOptions | RotateAngleOptions | undefined));
+                    flagArray[82] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[82] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[82] = 0;
+                    peer.setRotateAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[83] != 0) {
+            switch (flagArray[83]) {
+                case 1: {
+                    peer.setTransformAttribute((this._transform_0_0value as Matrix4Transit | undefined));
+                    flagArray[83] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[83] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[83] = 0;
+                    peer.setTransformAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[84] != 0) {
+            switch (flagArray[84]) {
+                case 1: {
+                    peer.setTransform3DAttribute((this._transform3D_0_0value as Matrix4Transit | undefined));
+                    flagArray[84] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[84] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[84] = 0;
+                    peer.setTransform3DAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[85] != 0) {
+            switch (flagArray[85]) {
+                case 1: {
+                    peer.setOnAppearAttribute((this._onAppear_0_0value as (() => void) | undefined));
+                    flagArray[85] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[85] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[85] = 0;
+                    peer.setOnAppearAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[86] != 0) {
+            switch (flagArray[86]) {
+                case 1: {
+                    peer.setOnDisAppearAttribute((this._onDisAppear_0_0value as (() => void) | undefined));
+                    flagArray[86] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[86] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[86] = 0;
+                    peer.setOnDisAppearAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[87] != 0) {
+            switch (flagArray[87]) {
+                case 1: {
+                    peer.setOnAttachAttribute((this._onAttach_0_0value as VoidCallback | undefined));
+                    flagArray[87] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[87] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[87] = 0;
+                    peer.setOnAttachAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[88] != 0) {
+            switch (flagArray[88]) {
+                case 1: {
+                    peer.setOnDetachAttribute((this._onDetach_0_0value as VoidCallback | undefined));
+                    flagArray[88] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[88] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[88] = 0;
+                    peer.setOnDetachAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[89] != 0) {
+            switch (flagArray[89]) {
+                case 1: {
+                    peer.setOnAreaChange0Attribute((this._onAreaChange_0_0value as ((oldValue: Area,newValue: Area) => void) | undefined));
+                    flagArray[89] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[89] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[89] = 0;
+                    peer.setOnAreaChange0Attribute((undefined as ((oldValue: Area,newValue: Area) => void) | undefined));
+                }
+            }
+        }
+        if (flagArray[90] != 0) {
+            switch (flagArray[90]) {
+                case 1: {
+                    peer.setVisibilityAttribute((this._visibility_0_0value as Visibility | undefined));
+                    flagArray[90] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[90] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[90] = 0;
+                    peer.setVisibilityAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[91] != 0) {
+            switch (flagArray[91]) {
+                case 1: {
+                    peer.setFlexGrowAttribute((this._flexGrow_0_0value as double | undefined));
+                    flagArray[91] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[91] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[91] = 0;
+                    peer.setFlexGrowAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[92] != 0) {
+            switch (flagArray[92]) {
+                case 1: {
+                    peer.setFlexShrinkAttribute((this._flexShrink_0_0value as double | undefined));
+                    flagArray[92] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[92] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[92] = 0;
+                    peer.setFlexShrinkAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[93] != 0) {
+            switch (flagArray[93]) {
+                case 1: {
+                    peer.setFlexBasisAttribute((this._flexBasis_0_0value as double | string | undefined));
+                    flagArray[93] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[93] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[93] = 0;
+                    peer.setFlexBasisAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[94] != 0) {
+            switch (flagArray[94]) {
+                case 1: {
+                    peer.setAlignSelfAttribute((this._alignSelf_0_0value as ItemAlign | undefined));
+                    flagArray[94] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[94] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[94] = 0;
+                    peer.setAlignSelfAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[95] != 0) {
+            switch (flagArray[95]) {
+                case 1: {
+                    peer.setLayoutGravityAttribute((this._layoutGravity_0_0value as LocalizedAlignment | undefined));
+                    flagArray[95] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[95] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[95] = 0;
+                    peer.setLayoutGravityAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[96] != 0) {
+            switch (flagArray[96]) {
+                case 1: {
+                    peer.setDisplayPriorityAttribute((this._displayPriority_0_0value as double | undefined));
+                    flagArray[96] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[96] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[96] = 0;
+                    peer.setDisplayPriorityAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[97] != 0) {
+            switch (flagArray[97]) {
+                case 1: {
+                    peer.setZIndexAttribute((this._zIndex_0_0value as int32 | undefined));
+                    flagArray[97] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[97] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[97] = 0;
+                    peer.setZIndexAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[98] != 0) {
+            switch (flagArray[98]) {
+                case 1: {
+                    peer.setDirectionAttribute((this._direction_0_0value as Direction | undefined));
+                    flagArray[98] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[98] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[98] = 0;
+                    peer.setDirectionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[99] != 0) {
+            switch (flagArray[99]) {
+                case 1: {
+                    peer.setAlignAttribute((this._align_0_0value as Alignment | LocalizedAlignment | undefined));
+                    flagArray[99] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[99] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[99] = 0;
+                    peer.setAlignAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch5(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[100] != 0) {
+            switch (flagArray[100]) {
+                case 1: {
+                    peer.setPositionAttribute((this._position_0_0value as Position | Edges | LocalizedEdges | undefined));
+                    flagArray[100] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[100] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[100] = 0;
+                    peer.setPositionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[101] != 0) {
+            switch (flagArray[101]) {
+                case 1: {
+                    peer.setMarkAnchorAttribute((this._markAnchor_0_0value as Position | LocalizedPosition | undefined));
+                    flagArray[101] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[101] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[101] = 0;
+                    peer.setMarkAnchorAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[102] != 0) {
+            switch (flagArray[102]) {
+                case 1: {
+                    peer.setOffsetAttribute((this._offset_0_0value as Position | Edges | LocalizedEdges | undefined));
+                    flagArray[102] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[102] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[102] = 0;
+                    peer.setOffsetAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[103] != 0) {
+            switch (flagArray[103]) {
+                case 1: {
+                    peer.setEnabledAttribute((this._enabled_0_0value as boolean | undefined));
+                    flagArray[103] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[103] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[103] = 0;
+                    peer.setEnabledAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[104] != 0) {
+            switch (flagArray[104]) {
+                case 1: {
+                    peer.setAlignRulesAttribute((this._alignRules_0_0value as AlignRuleOption | LocalizedAlignRuleOptions | undefined));
+                    flagArray[104] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[104] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[104] = 0;
+                    peer.setAlignRulesAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[105] != 0) {
+            switch (flagArray[105]) {
+                case 1: {
+                    peer.setAspectRatioAttribute((this._aspectRatio_0_0value as double | undefined));
+                    flagArray[105] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[105] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[105] = 0;
+                    peer.setAspectRatioAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[106] != 0) {
+            switch (flagArray[106]) {
+                case 1: {
+                    peer.setClickEffectAttribute((this._clickEffect_0_0value as ClickEffect | null | undefined));
+                    flagArray[106] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[106] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[106] = 0;
+                    peer.setClickEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[107] != 0) {
+            switch (flagArray[107]) {
+                case 1: {
+                    peer.setEnableClickSoundEffectAttribute((this._enableClickSoundEffect_0_0value as boolean | undefined));
+                    flagArray[107] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[107] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[107] = 0;
+                    peer.setEnableClickSoundEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[108] != 0) {
+            switch (flagArray[108]) {
+                case 1: {
+                    peer.setOnDragStartAttribute((this._onDragStart_0_0value as ((event: DragEvent,extraParams?: string) => CustomBuilder | DragItemInfo) | undefined));
+                    flagArray[108] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[108] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[108] = 0;
+                    peer.setOnDragStartAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[109] != 0) {
+            switch (flagArray[109]) {
+                case 1: {
+                    peer.setOnDragEnterAttribute((this._onDragEnter_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    flagArray[109] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[109] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[109] = 0;
+                    peer.setOnDragEnterAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[110] != 0) {
+            switch (flagArray[110]) {
+                case 1: {
+                    peer.setOnDragMoveAttribute((this._onDragMove_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    flagArray[110] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[110] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[110] = 0;
+                    peer.setOnDragMoveAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[111] != 0) {
+            switch (flagArray[111]) {
+                case 1: {
+                    peer.setOnDragLeaveAttribute((this._onDragLeave_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    flagArray[111] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[111] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[111] = 0;
+                    peer.setOnDragLeaveAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[112] != 0) {
+            switch (flagArray[112]) {
+                case 1: {
+                    peer.setOnDrop0Attribute((this._onDrop_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    flagArray[112] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[112] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[112] = 0;
+                    peer.setOnDrop0Attribute(undefined);
+                }
+            }
+        }
+        if (flagArray[113] != 0) {
+            switch (flagArray[113]) {
+                case 1: {
+                    peer.setOnDragEndAttribute((this._onDragEnd_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    flagArray[113] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[113] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[113] = 0;
+                    peer.setOnDragEndAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[114] != 0) {
+            switch (flagArray[114]) {
+                case 1: {
+                    hookAllowDrop(peer, (this._allowDrop_0_0value as Array<UniformDataType> | Array<string> | null | undefined));
+                    flagArray[114] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[114] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[114] = 0;
+                    hookAllowDrop(peer, undefined);
+                }
+            }
+        }
+        if (flagArray[115] != 0) {
+            switch (flagArray[115]) {
+                case 1: {
+                    peer.setDraggableAttribute((this._draggable_0_0value as boolean | undefined));
+                    flagArray[115] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[115] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[115] = 0;
+                    peer.setDraggableAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[116] != 0) {
+            switch (flagArray[116]) {
+                case 1: {
+                    peer.setOnPreDragAttribute((this._onPreDrag_0_0value as arkui_component_common_Callback<PreDragStatus, void> | undefined));
+                    flagArray[116] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[116] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[116] = 0;
+                    peer.setOnPreDragAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[117] != 0) {
+            switch (flagArray[117]) {
+                case 1: {
+                    peer.setLinearGradientAttribute((this._linearGradient_0_0value as LinearGradientOptions | undefined));
+                    flagArray[117] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[117] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[117] = 0;
+                    peer.setLinearGradientAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[118] != 0) {
+            switch (flagArray[118]) {
+                case 1: {
+                    peer.setSweepGradientAttribute((this._sweepGradient_0_0value as SweepGradientOptions | undefined));
+                    flagArray[118] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[118] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[118] = 0;
+                    peer.setSweepGradientAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[119] != 0) {
+            switch (flagArray[119]) {
+                case 1: {
+                    peer.setRadialGradientAttribute((this._radialGradient_0_0value as RadialGradientOptions | undefined));
+                    flagArray[119] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[119] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[119] = 0;
+                    peer.setRadialGradientAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch6(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[120] != 0) {
+            switch (flagArray[120]) {
+                case 1: {
+                    peer.setMotionPathAttribute((this._motionPath_0_0value as MotionPathOptions | undefined));
+                    flagArray[120] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[120] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[120] = 0;
+                    peer.setMotionPathAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[121] != 0) {
+            switch (flagArray[121]) {
+                case 1: {
+                    peer.setShadowAttribute((this._shadow_0_0value as ShadowOptions | ShadowStyle | undefined));
+                    flagArray[121] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[121] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[121] = 0;
+                    peer.setShadowAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[122] != 0) {
+            switch (flagArray[122]) {
+                case 1: {
+                    peer.setClipAttribute((this._clip_0_0value as boolean | undefined));
+                    flagArray[122] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[122] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[122] = 0;
+                    peer.setClipAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[123] != 0) {
+            switch (flagArray[123]) {
+                case 1: {
+                    peer.setClipShapeAttribute((this._clipShape_0_0value as CircleShape | EllipseShape | PathShape | RectShape | undefined));
+                    flagArray[123] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[123] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[123] = 0;
+                    peer.setClipShapeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[124] != 0) {
+            switch (flagArray[124]) {
+                case 1: {
+                    peer.setMaskAttribute((this._mask_0_0value as ProgressMask | undefined));
+                    flagArray[124] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[124] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[124] = 0;
+                    peer.setMaskAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[125] != 0) {
+            switch (flagArray[125]) {
+                case 1: {
+                    peer.setMaskShapeAttribute((this._maskShape_0_0value as CircleShape | EllipseShape | PathShape | RectShape | undefined));
+                    flagArray[125] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[125] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[125] = 0;
+                    peer.setMaskShapeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[126] != 0) {
+            switch (flagArray[126]) {
+                case 1: {
+                    peer.setKeyAttribute((this._key_0_0value as string | undefined));
+                    flagArray[126] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[126] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[126] = 0;
+                    peer.setKeyAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[127] != 0) {
+            switch (flagArray[127]) {
+                case 1: {
+                    peer.setIdAttribute((this._id_0_0value as string | undefined));
+                    flagArray[127] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[127] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[127] = 0;
+                    peer.setIdAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[128] != 0) {
+            switch (flagArray[128]) {
+                case 1: {
+                    hookStateStyleImpl(peer, (this._stateStyles_0_0value as StateStyles | undefined));
+                    flagArray[128] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[128] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[128] = 0;
+                    hookStateStyleImpl(peer, undefined);
+                }
+            }
+        }
+        if (flagArray[129] != 0) {
+            switch (flagArray[129]) {
+                case 1: {
+                    peer.setRestoreIdAttribute((this._restoreId_0_0value as int32 | undefined));
+                    flagArray[129] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[129] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[129] = 0;
+                    peer.setRestoreIdAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[130] != 0) {
+            switch (flagArray[130]) {
+                case 1: {
+                    peer.setSphericalEffectAttribute((this._sphericalEffect_0_0value as double | undefined));
+                    flagArray[130] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[130] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[130] = 0;
+                    peer.setSphericalEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[131] != 0) {
+            switch (flagArray[131]) {
+                case 1: {
+                    peer.setLightUpEffectAttribute((this._lightUpEffect_0_0value as double | undefined));
+                    flagArray[131] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[131] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[131] = 0;
+                    peer.setLightUpEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[132] != 0) {
+            switch (flagArray[132]) {
+                case 1: {
+                    peer.setPixelStretchEffectAttribute((this._pixelStretchEffect_0_0value as PixelStretchEffectOptions | undefined));
+                    flagArray[132] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[132] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[132] = 0;
+                    peer.setPixelStretchEffectAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[133] != 0) {
+            switch (flagArray[133]) {
+                case 1: {
+                    peer.setAccessibilityNextFocusIdAttribute((this._accessibilityNextFocusId_0_0value as string | undefined));
+                    flagArray[133] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[133] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[133] = 0;
+                    peer.setAccessibilityNextFocusIdAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[134] != 0) {
+            switch (flagArray[134]) {
+                case 1: {
+                    peer.setAccessibilityDefaultFocusAttribute((this._accessibilityDefaultFocus_0_0value as boolean | undefined));
+                    flagArray[134] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[134] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[134] = 0;
+                    peer.setAccessibilityDefaultFocusAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[135] != 0) {
+            switch (flagArray[135]) {
+                case 1: {
+                    peer.setAccessibilityUseSamePageAttribute((this._accessibilityUseSamePage_0_0value as AccessibilitySamePageMode | undefined));
+                    flagArray[135] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[135] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[135] = 0;
+                    peer.setAccessibilityUseSamePageAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[136] != 0) {
+            switch (flagArray[136]) {
+                case 1: {
+                    peer.setAccessibilityScrollTriggerableAttribute((this._accessibilityScrollTriggerable_0_0value as boolean | undefined));
+                    flagArray[136] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[136] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[136] = 0;
+                    peer.setAccessibilityScrollTriggerableAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[137] != 0) {
+            switch (flagArray[137]) {
+                case 1: {
+                    peer.setAccessibilityTextAttribute((this._accessibilityText_0_0value as global_resource_Resource | string | undefined));
+                    flagArray[137] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[137] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[137] = 0;
+                    peer.setAccessibilityTextAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[138] != 0) {
+            switch (flagArray[138]) {
+                case 1: {
+                    peer.setAccessibilityRoleAttribute((this._accessibilityRole_0_0value as AccessibilityRoleType | undefined));
+                    flagArray[138] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[138] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[138] = 0;
+                    peer.setAccessibilityRoleAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[139] != 0) {
+            switch (flagArray[139]) {
+                case 1: {
+                    peer.setOnAccessibilityFocusAttribute((this._onAccessibilityFocus_0_0value as AccessibilityFocusCallback | undefined));
+                    flagArray[139] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[139] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[139] = 0;
+                    peer.setOnAccessibilityFocusAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch7(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[140] != 0) {
+            switch (flagArray[140]) {
+                case 1: {
+                    peer.setOnAccessibilityActionInterceptAttribute((this._onAccessibilityActionIntercept_0_0value as AccessibilityActionInterceptCallback | undefined));
+                    flagArray[140] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[140] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[140] = 0;
+                    peer.setOnAccessibilityActionInterceptAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[141] != 0) {
+            switch (flagArray[141]) {
+                case 1: {
+                    peer.setAccessibilityTextHintAttribute((this._accessibilityTextHint_0_0value as string | undefined));
+                    flagArray[141] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[141] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[141] = 0;
+                    peer.setAccessibilityTextHintAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[142] != 0) {
+            switch (flagArray[142]) {
+                case 1: {
+                    peer.setAccessibilityDescriptionAttribute((this._accessibilityDescription_0_0value as global_resource_Resource | string | undefined));
+                    flagArray[142] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[142] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[142] = 0;
+                    peer.setAccessibilityDescriptionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[143] != 0) {
+            switch (flagArray[143]) {
+                case 1: {
+                    peer.setAccessibilityLevelAttribute((this._accessibilityLevel_0_0value as string | undefined));
+                    flagArray[143] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[143] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[143] = 0;
+                    peer.setAccessibilityLevelAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[144] != 0) {
+            switch (flagArray[144]) {
+                case 1: {
+                    peer.setAccessibilityVirtualNodeAttribute((this._accessibilityVirtualNode_0_0value as CustomBuilder | undefined));
+                    flagArray[144] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[144] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[144] = 0;
+                    peer.setAccessibilityVirtualNodeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[145] != 0) {
+            switch (flagArray[145]) {
+                case 1: {
+                    peer.setAccessibilityCheckedAttribute((this._accessibilityChecked_0_0value as boolean | undefined));
+                    flagArray[145] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[145] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[145] = 0;
+                    peer.setAccessibilityCheckedAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[146] != 0) {
+            switch (flagArray[146]) {
+                case 1: {
+                    peer.setAccessibilitySelectedAttribute((this._accessibilitySelected_0_0value as boolean | undefined));
+                    flagArray[146] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[146] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[146] = 0;
+                    peer.setAccessibilitySelectedAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[147] != 0) {
+            switch (flagArray[147]) {
+                case 1: {
+                    peer.setObscuredAttribute((this._obscured_0_0value as Array<ObscuredReasons> | undefined));
+                    flagArray[147] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[147] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[147] = 0;
+                    peer.setObscuredAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[148] != 0) {
+            switch (flagArray[148]) {
+                case 1: {
+                    peer.setReuseIdAttribute((this._reuseId_0_0value as string | undefined));
+                    flagArray[148] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[148] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[148] = 0;
+                    peer.setReuseIdAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[149] != 0) {
+            switch (flagArray[149]) {
+                case 1: {
+                    peer.setReuseAttribute((this._reuse_0_0value as ReuseOptions | undefined));
+                    flagArray[149] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[149] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[149] = 0;
+                    peer.setReuseAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[150] != 0) {
+            switch (flagArray[150]) {
+                case 1: {
+                    peer.setRenderFitAttribute((this._renderFit_0_0value as RenderFit | undefined));
+                    flagArray[150] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[150] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[150] = 0;
+                    peer.setRenderFitAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[151] != 0) {
+            switch (flagArray[151]) {
+                case 1: {
+                    hookGestureModifier(peer, (this._gestureModifier_0_0value as GestureModifier | undefined));
+                    flagArray[151] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[151] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[151] = 0;
+                    hookGestureModifier(peer, undefined);
+                }
+            }
+        }
+        if (flagArray[152] != 0) {
+            switch (flagArray[152]) {
+                case 1: {
+                    peer.setBackgroundBrightnessAttribute((this._backgroundBrightness_0_0value as BackgroundBrightnessOptions | undefined));
+                    flagArray[152] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[152] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[152] = 0;
+                    peer.setBackgroundBrightnessAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[153] != 0) {
+            switch (flagArray[153]) {
+                case 1: {
+                    peer.setOnGestureJudgeBeginAttribute((this._onGestureJudgeBegin_0_0value as ((gestureInfo: GestureInfo,event: BaseGestureEvent) => GestureJudgeResult) | undefined));
+                    flagArray[153] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[153] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[153] = 0;
+                    peer.setOnGestureJudgeBeginAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[154] != 0) {
+            switch (flagArray[154]) {
+                case 1: {
+                    peer.setOnGestureRecognizerJudgeBegin0Attribute((this._onGestureRecognizerJudgeBegin_0_0value as GestureRecognizerJudgeBeginCallback | undefined));
+                    flagArray[154] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[154] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[154] = 0;
+                    peer.setOnGestureRecognizerJudgeBegin0Attribute(undefined);
+                }
+            }
+        }
+        if (flagArray[155] != 0) {
+            switch (flagArray[155]) {
+                case 1: {
+                    peer.setShouldBuiltInRecognizerParallelWithAttribute((this._shouldBuiltInRecognizerParallelWith_0_0value as ShouldBuiltInRecognizerParallelWithCallback | undefined));
+                    flagArray[155] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[155] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[155] = 0;
+                    peer.setShouldBuiltInRecognizerParallelWithAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[156] != 0) {
+            switch (flagArray[156]) {
+                case 1: {
+                    peer.setMonopolizeEventsAttribute((this._monopolizeEvents_0_0value as boolean | undefined));
+                    flagArray[156] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[156] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[156] = 0;
+                    peer.setMonopolizeEventsAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[157] != 0) {
+            switch (flagArray[157]) {
+                case 1: {
+                    peer.setOnTouchInterceptAttribute((this._onTouchIntercept_0_0value as arkui_component_common_Callback<TouchEvent, HitTestMode> | undefined));
+                    flagArray[157] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[157] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[157] = 0;
+                    peer.setOnTouchInterceptAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[158] != 0) {
+            switch (flagArray[158]) {
+                case 1: {
+                    peer.setOnSizeChangeAttribute((this._onSizeChange_0_0value as SizeChangeCallback | undefined));
+                    flagArray[158] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[158] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[158] = 0;
+                    peer.setOnSizeChangeAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[159] != 0) {
+            switch (flagArray[159]) {
+                case 1: {
+                    peer.setAccessibilityFocusDrawLevelAttribute((this._accessibilityFocusDrawLevel_0_0value as FocusDrawLevel | undefined));
+                    flagArray[159] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[159] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[159] = 0;
+                    peer.setAccessibilityFocusDrawLevelAttribute(undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch8(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[160] != 0) {
+            switch (flagArray[160]) {
+                case 1: {
+                    peer.setOnTouchTestDoneAttribute((this._onTouchTestDone_0_0value as TouchTestDoneCallback | undefined));
+                    flagArray[160] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[160] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[160] = 0;
+                    peer.setOnTouchTestDoneAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[161] != 0) {
+            switch (flagArray[161]) {
+                case 1: {
+                    peer.setSystemMaterialAttribute((this._systemMaterial_0_0value as SystemUiMaterial | undefined));
+                    flagArray[161] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[161] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[161] = 0;
+                    peer.setSystemMaterialAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[162] != 0) {
+            switch (flagArray[162]) {
+                case 1: {
+                    peer.setOnNeedSoftkeyboardAttribute((this._onNeedSoftkeyboard_0_0value as OnNeedSoftkeyboardCallback | undefined));
+                    flagArray[162] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[162] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[162] = 0;
+                    peer.setOnNeedSoftkeyboardAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[163] != 0) {
+            switch (flagArray[163]) {
+                case 1: {
+                    peer.setAccessibilityStateDescriptionAttribute((this._accessibilityStateDescription_0_0value as string | global_resource_Resource | undefined));
+                    flagArray[163] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[163] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[163] = 0;
+                    peer.setAccessibilityStateDescriptionAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[164] != 0) {
+            switch (flagArray[164]) {
+                case 1: {
+                    peer.setAccessibilityActionOptionsAttribute((this._accessibilityActionOptions_0_0value as AccessibilityActionOptions | undefined));
+                    flagArray[164] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[164] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[164] = 0;
+                    peer.setAccessibilityActionOptionsAttribute(undefined);
+                }
+            }
+        }
+        if (flagArray[165] != 0) {
+            switch (flagArray[165]) {
+                case 1: {
+                    // instructive change start
+                    hookCustomPropertyImpl(peer, (this._customProperty_0_0value as string), (this._customProperty_0_1value as CustomProperty), this);
+                    // instructive change end
+                    break;
+                }
+                case 3: {
+                    flagArray[165] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[165] = 0;
+                }
+            }
+        }
+        if (flagArray[166] != 0) {
+            switch (flagArray[166]) {
+                case 1: {
+                    peer.setExpandSafeAreaAttribute((this._expandSafeArea_0_0value as Array<SafeAreaType> | undefined), (this._expandSafeArea_0_1value as Array<SafeAreaEdge> | undefined));
+                    flagArray[166] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[166] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[166] = 0;
+                    peer.setExpandSafeAreaAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[167] != 0) {
+            switch (flagArray[167]) {
+                case 1: {
+                    peer.setIgnoreLayoutSafeAreaAttribute((this._ignoreLayoutSafeArea_0_0value as Array<LayoutSafeAreaType> | undefined | undefined), (this._ignoreLayoutSafeArea_0_1value as Array<LayoutSafeAreaEdge> | undefined | undefined));
+                    flagArray[167] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[167] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[167] = 0;
+                    peer.setIgnoreLayoutSafeAreaAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[168] != 0) {
+            switch (flagArray[168]) {
+                case 1: {
+                    peer.setBackgroundAttribute((this._background_0_0value as CustomBuilder | ResourceColor | undefined), (this._background_0_1value as BackgroundOptions | undefined));
+                    flagArray[168] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[168] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[168] = 0;
+                    peer.setBackgroundAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[169] != 0) {
+            switch (flagArray[169]) {
+                case 1: {
+                    peer.setBackgroundImage1Attribute((this._backgroundImage_1_0value as ResourceStr | PixelMap | undefined), (this._backgroundImage_1_1value as BackgroundImageOptions));
+                    flagArray[169] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[169] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[169] = 0;
+                }
+            }
+        }
+        if (flagArray[170] != 0) {
+            switch (flagArray[170]) {
+                case 1: {
+                    peer.setBackgroundImage2Attribute((this._backgroundImage_2_0value as ResourceStr | PixelMap | undefined), (this._backgroundImage_2_1value as ImageRepeat));
+                    flagArray[170] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[170] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[170] = 0;
+                }
+            }
+        }
+        if (flagArray[171] != 0) {
+            switch (flagArray[171]) {
+                case 1: {
+                    peer.setBackgroundBlurStyleAttribute((this._backgroundBlurStyle_0_0value as BlurStyle | undefined), (this._backgroundBlurStyle_0_1value as BackgroundBlurStyleOptions | undefined), (this._backgroundBlurStyle_0_2value as SystemAdaptiveOptions | undefined));
+                    flagArray[171] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[171] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[171] = 0;
+                    peer.setBackgroundBlurStyleAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[172] != 0) {
+            switch (flagArray[172]) {
+                case 1: {
+                    peer.setBackgroundEffectAttribute((this._backgroundEffect_0_0value as BackgroundEffectOptions | undefined), (this._backgroundEffect_0_1value as SystemAdaptiveOptions | undefined));
+                    flagArray[172] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[172] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[172] = 0;
+                    peer.setBackgroundEffectAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[173] != 0) {
+            switch (flagArray[173]) {
+                case 1: {
+                    peer.setForegroundBlurStyleAttribute((this._foregroundBlurStyle_0_0value as BlurStyle | undefined), (this._foregroundBlurStyle_0_1value as ForegroundBlurStyleOptions | undefined), (this._foregroundBlurStyle_0_2value as SystemAdaptiveOptions | undefined));
+                    flagArray[173] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[173] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[173] = 0;
+                    peer.setForegroundBlurStyleAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[174] != 0) {
+            switch (flagArray[174]) {
+                case 1: {
+                    peer.setBorderRadiusAttribute((this._borderRadius_0_0value as Length | BorderRadiuses | LocalizedBorderRadiuses | undefined), (this._borderRadius_0_1value as RenderStrategy | undefined | undefined));
+                    flagArray[174] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[174] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[174] = 0;
+                    peer.setBorderRadiusAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[175] != 0) {
+            switch (flagArray[175]) {
+                case 1: {
+                    peer.setOnClick1Attribute((this._onClick_1_0value as ((event: ClickEvent) => void) | undefined), (this._onClick_1_1value as double | undefined));
+                    flagArray[175] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[175] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[175] = 0;
+                    peer.setOnClick1Attribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[176] != 0) {
+            switch (flagArray[176]) {
+                case 1: {
+                    peer.setFocusScopeIdAttribute((this._focusScopeId_0_0value as string | undefined), (this._focusScopeId_0_1value as boolean | undefined), (this._focusScopeId_0_2value as boolean | undefined));
+                    flagArray[176] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[176] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[176] = 0;
+                    peer.setFocusScopeIdAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[177] != 0) {
+            switch (flagArray[177]) {
+                case 1: {
+                    peer.setFocusScopePriorityAttribute((this._focusScopePriority_0_0value as string | undefined), (this._focusScopePriority_0_1value as FocusPriority | undefined));
+                    flagArray[177] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[177] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[177] = 0;
+                    peer.setFocusScopePriorityAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[178] != 0) {
+            switch (flagArray[178]) {
+                case 1: {
+                    peer.setTransition1Attribute((this._transition_1_0value as TransitionEffect | undefined), (this._transition_1_1value as TransitionFinishCallback | undefined));
+                    flagArray[178] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[178] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[178] = 0;
+                    peer.setTransition1Attribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[179] != 0) {
+            switch (flagArray[179]) {
+                case 1: {
+                    hookGesture(peer, (this._gesture_0_0value as GestureType), (this._gesture_0_1value as GestureMask | undefined));
+                    flagArray[179] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[179] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[179] = 0;
+                }
+            }
+        }
+    }
+    applyModifierPatch9(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[180] != 0) {
+            switch (flagArray[180]) {
+                case 1: {
+                    hookPriorityGesture(peer, (this._priorityGesture_0_0value as GestureType), (this._priorityGesture_0_1value as GestureMask | undefined));
+                    flagArray[180] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[180] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[180] = 0;
+                }
+            }
+        }
+        if (flagArray[181] != 0) {
+            switch (flagArray[181]) {
+                case 1: {
+                    hookParallelGesture(peer, (this._parallelGesture_0_0value as GestureType), (this._parallelGesture_0_1value as GestureMask | undefined));
+                    flagArray[181] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[181] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[181] = 0;
+                }
+            }
+        }
+        if (flagArray[182] != 0) {
+            switch (flagArray[182]) {
+                case 1: {
+                    peer.setBlurAttribute((this._blur_0_0value as double | undefined), (this._blur_0_1value as BlurOptions | undefined), (this._blur_0_2value as SystemAdaptiveOptions | undefined));
+                    flagArray[182] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[182] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[182] = 0;
+                    peer.setBlurAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[183] != 0) {
+            switch (flagArray[183]) {
+                case 1: {
+                    peer.setLinearGradientBlurAttribute((this._linearGradientBlur_0_0value as double | undefined), (this._linearGradientBlur_0_1value as LinearGradientBlurOptions | undefined));
+                    flagArray[183] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[183] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[183] = 0;
+                    peer.setLinearGradientBlurAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[184] != 0) {
+            switch (flagArray[184]) {
+                case 1: {
+                    peer.setSystemBarEffectAttribute();
+                    flagArray[184] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[184] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[184] = 0;
+                    peer.setSystemBarEffectAttribute();
+                }
+            }
+        }
+        if (flagArray[185] != 0) {
+            switch (flagArray[185]) {
+                case 1: {
+                    peer.setUseEffect1Attribute((this._useEffect_1_0value as boolean | undefined), (this._useEffect_1_1value as EffectType | undefined));
+                    flagArray[185] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[185] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[185] = 0;
+                    peer.setUseEffect1Attribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[186] != 0) {
+            switch (flagArray[186]) {
+                case 1: {
+                    peer.setBackdropBlurAttribute((this._backdropBlur_0_0value as double | undefined), (this._backdropBlur_0_1value as BlurOptions | undefined), (this._backdropBlur_0_2value as SystemAdaptiveOptions | undefined));
+                    flagArray[186] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[186] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[186] = 0;
+                    peer.setBackdropBlurAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[187] != 0) {
+            switch (flagArray[187]) {
+                case 1: {
+                    peer.setSharedTransitionAttribute((this._sharedTransition_0_0value as string | undefined), (this._sharedTransition_0_1value as sharedTransitionOptions | undefined));
+                    flagArray[187] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[187] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[187] = 0;
+                    peer.setSharedTransitionAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[188] != 0) {
+            switch (flagArray[188]) {
+                case 1: {
+                    peer.setChainModeAttribute((this._chainMode_0_0value as Axis | undefined), (this._chainMode_0_1value as ChainStyle | undefined));
+                    flagArray[188] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[188] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[188] = 0;
+                    peer.setChainModeAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[189] != 0) {
+            switch (flagArray[189]) {
+                case 1: {
+                    peer.setOnDrop1Attribute((this._onDrop_1_0value as OnDragEventCallback | undefined), (this._onDrop_1_1value as DropOptions));
+                    flagArray[189] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[189] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[189] = 0;
+                }
+            }
+        }
+        if (flagArray[190] != 0) {
+            switch (flagArray[190]) {
+                case 1: {
+                    peer.setOnDragSpringLoadingAttribute((this._onDragSpringLoading_0_0value as arkui_component_common_Callback<SpringLoadingContext, void> | null | undefined), (this._onDragSpringLoading_0_1value as DragSpringLoadingConfiguration | undefined));
+                    flagArray[190] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[190] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[190] = 0;
+                    peer.setOnDragSpringLoadingAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[191] != 0) {
+            switch (flagArray[191]) {
+                case 1: {
+                    peer.setDragPreviewAttribute((this._dragPreview_0_0value as CustomBuilder | DragItemInfo | string | undefined), (this._dragPreview_0_1value as PreviewConfiguration | undefined));
+                    flagArray[191] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[191] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[191] = 0;
+                    peer.setDragPreviewAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[192] != 0) {
+            switch (flagArray[192]) {
+                case 1: {
+                    hookDragPreviewOptions(peer, (this._dragPreviewOptions_0_0value as DragPreviewOptions | undefined), (this._dragPreviewOptions_0_1value as DragInteractionOptions | undefined));
+                    flagArray[192] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[192] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[192] = 0;
+                    hookDragPreviewOptions(peer, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[193] != 0) {
+            switch (flagArray[193]) {
+                case 1: {
+                    peer.setOverlayAttribute((this._overlay_0_0value as string | CustomBuilder | ComponentContent<Object> | undefined), (this._overlay_0_1value as OverlayOptions | undefined));
+                    flagArray[193] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[193] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[193] = 0;
+                    peer.setOverlayAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[194] != 0) {
+            switch (flagArray[194]) {
+                case 1: {
+                    peer.setBlendModeAttribute((this._blendMode_0_0value as BlendMode | undefined), (this._blendMode_0_1value as BlendApplyType | undefined));
+                    flagArray[194] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[194] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[194] = 0;
+                    peer.setBlendModeAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[195] != 0) {
+            switch (flagArray[195]) {
+                case 1: {
+                    peer.setAdvancedBlendModeAttribute((this._advancedBlendMode_0_0value as BlendMode | Blender | undefined), (this._advancedBlendMode_0_1value as BlendApplyType | undefined));
+                    flagArray[195] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[195] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[195] = 0;
+                    peer.setAdvancedBlendModeAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[196] != 0) {
+            switch (flagArray[196]) {
+                case 1: {
+                    peer.setGeometryTransitionAttribute((this._geometryTransition_0_0value as string | undefined), (this._geometryTransition_0_1value as GeometryTransitionOptions | undefined));
+                    flagArray[196] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[196] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[196] = 0;
+                    peer.setGeometryTransitionAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[197] != 0) {
+            switch (flagArray[197]) {
+                case 1: {
+                    peer.setBindTipsAttribute((this._bindTips_0_0value as TipsMessageType | undefined), (this._bindTips_0_1value as TipsOptions | undefined));
+                    flagArray[197] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[197] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[197] = 0;
+                    peer.setBindTipsAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[198] != 0) {
+            switch (flagArray[198]) {
+                case 1: {
+                    peer.setBindPopupAttribute((this._bindPopup_0_0value as boolean | undefined), (this._bindPopup_0_1value as PopupOptions | CustomPopupOptions | undefined));
+                    flagArray[198] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[198] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[198] = 0;
+                    peer.setBindPopupAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[199] != 0) {
+            switch (flagArray[199]) {
+                case 1: {
+                    peer.setBindMenu0Attribute((this._bindMenu_0_0value as Array<MenuElement> | CustomBuilder | undefined), (this._bindMenu_0_1value as MenuOptions | undefined));
+                    flagArray[199] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[199] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[199] = 0;
+                    peer.setBindMenu0Attribute(undefined, undefined);
+                }
+            }
+        }
+    }
+    applyModifierPatch10(peer: ArkCommonMethodPeer, flagArray: Uint8Array): void {
+        if (flagArray[200] != 0) {
+            switch (flagArray[200]) {
+                case 1: {
+                    peer.setBindMenu1Attribute((this._bindMenu_1_0value as boolean | Bindable<boolean> | undefined), (this._bindMenu_1_1value as Array<MenuElement> | CustomBuilder | undefined), (this._bindMenu_1_2value as MenuOptions | undefined));
+                    flagArray[200] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[200] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[200] = 0;
+                    peer.setBindMenu1Attribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[201] != 0) {
+            switch (flagArray[201]) {
+                case 1: {
+                    peer.setBindContextMenu0Attribute((this._bindContextMenu_0_0value as CustomBuilder | undefined), (this._bindContextMenu_0_1value as ResponseType | undefined), (this._bindContextMenu_0_2value as ContextMenuOptions | undefined));
+                    flagArray[201] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[201] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[201] = 0;
+                    peer.setBindContextMenu0Attribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[202] != 0) {
+            switch (flagArray[202]) {
+                case 1: {
+                    peer.setBindContextMenuWithResponseAttribute((this._bindContextMenuWithResponse_0_0value as CustomBuilderT<ResponseType> | undefined), (this._bindContextMenuWithResponse_0_1value as ContextMenuOptions | undefined));
+                    flagArray[202] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[202] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[202] = 0;
+                    peer.setBindContextMenuWithResponseAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[203] != 0) {
+            switch (flagArray[203]) {
+                case 1: {
+                    peer.setBindContextMenu1Attribute((this._bindContextMenu_1_0value as boolean | Bindable<boolean> | undefined), (this._bindContextMenu_1_1value as CustomBuilder | undefined), (this._bindContextMenu_1_2value as ContextMenuOptions | undefined));
+                    flagArray[203] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[203] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[203] = 0;
+                    peer.setBindContextMenu1Attribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[204] != 0) {
+            switch (flagArray[204]) {
+                case 1: {
+                    peer.setBindContentCover0Attribute((this._bindContentCover_0_0value as boolean | Bindable<boolean> | undefined), (this._bindContentCover_0_1value as CustomBuilder | undefined), (this._bindContentCover_0_2value as ModalTransition | undefined));
+                    flagArray[204] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[204] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[204] = 0;
+                    peer.setBindContentCover0Attribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[205] != 0) {
+            switch (flagArray[205]) {
+                case 1: {
+                    peer.setBindContentCover1Attribute((this._bindContentCover_1_0value as boolean | Bindable<boolean> | undefined), (this._bindContentCover_1_1value as CustomBuilder | undefined), (this._bindContentCover_1_2value as ContentCoverOptions | undefined));
+                    flagArray[205] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[205] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[205] = 0;
+                    peer.setBindContentCover1Attribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[206] != 0) {
+            switch (flagArray[206]) {
+                case 1: {
+                    peer.setBindSheetAttribute((this._bindSheet_0_0value as boolean | Bindable<boolean> | undefined), (this._bindSheet_0_1value as CustomBuilder | undefined), (this._bindSheet_0_2value as SheetOptions | undefined));
+                    flagArray[206] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[206] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[206] = 0;
+                    peer.setBindSheetAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[207] != 0) {
+            switch (flagArray[207]) {
+                case 1: {
+                    peer.setOnVisibleAreaChangeAttribute((this._onVisibleAreaChange_0_0value as Array<double> | undefined), (this._onVisibleAreaChange_0_1value as VisibleAreaChangeCallback | undefined));
+                    flagArray[207] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[207] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[207] = 0;
+                    peer.setOnVisibleAreaChangeAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[208] != 0) {
+            switch (flagArray[208]) {
+                case 1: {
+                    peer.setOnVisibleAreaApproximateChangeAttribute((this._onVisibleAreaApproximateChange_0_0value as VisibleAreaEventOptions | undefined), (this._onVisibleAreaApproximateChange_0_1value as VisibleAreaChangeCallback | undefined));
+                    flagArray[208] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[208] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[208] = 0;
+                    peer.setOnVisibleAreaApproximateChangeAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[209] != 0) {
+            switch (flagArray[209]) {
+                case 1: {
+                    peer.setKeyboardShortcutAttribute((this._keyboardShortcut_0_0value as string | FunctionKey | undefined), (this._keyboardShortcut_0_1value as Array<ModifierKey> | undefined), (this._keyboardShortcut_0_2value as (() => void) | undefined));
+                    flagArray[209] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[209] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[209] = 0;
+                    peer.setKeyboardShortcutAttribute(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[210] != 0) {
+            switch (flagArray[210]) {
+                case 1: {
+                    peer.setAccessibilityGroupAttribute((this._accessibilityGroup_0_0value as boolean | undefined), (this._accessibilityGroup_0_1value as AccessibilityOptions | undefined));
+                    flagArray[210] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[210] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[210] = 0;
+                    peer.setAccessibilityGroupAttribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[211] != 0) {
+            switch (flagArray[211]) {
+                case 1: {
+                    peer.setOnGestureRecognizerJudgeBegin1Attribute((this._onGestureRecognizerJudgeBegin_1_0value as GestureRecognizerJudgeBeginCallback | undefined), (this._onGestureRecognizerJudgeBegin_1_1value as boolean | undefined));
+                    flagArray[211] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[211] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[211] = 0;
+                    peer.setOnGestureRecognizerJudgeBegin1Attribute(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[212] != 0)
+        {
+            switch (flagArray[212]) {
+                case 1: {
+                    peer.setDebugLineAttribute((this._debugLine_0_0value as string), (this._debugLine_0_1value as string | undefined));
+                    flagArray[212] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[212] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[212] = 0;
+                }
+            }
+        }
+        if (flagArray[213] != 0) {
+            switch (flagArray[213]) {
+                case 1: {
+                    peer.setOnAreaChange1Attribute((this._onAreaChange_1_0value as AreaChangeCallback), (this._onAreaChange_1_1value as AreaChangeOptions | undefined));
+                    flagArray[213] = 2;
+                    break;
+                }
+                case 3: {
+                    flagArray[213] = 2;
+                    break;
+                }
+                default: {
+                    flagArray[213] = 0;
+                }
+            }
+        }
+    }
+    mergeModifier(modifier: CommonMethodModifier): void {
+        this._state = modifier._state;
+        const flagArray = modifier._flagArray;
+        this.mergeModifier0(modifier, flagArray);
+        this.mergeModifier1(modifier, flagArray);
+        this.mergeModifier2(modifier, flagArray);
+        this.mergeModifier3(modifier, flagArray);
+        this.mergeModifier4(modifier, flagArray);
+        this.mergeModifier5(modifier, flagArray);
+        this.mergeModifier6(modifier, flagArray);
+        this.mergeModifier7(modifier, flagArray);
+        this.mergeModifier8(modifier, flagArray);
+        this.mergeModifier9(modifier, flagArray);
+        this.mergeModifier10(modifier, flagArray);
+    }
+    mergeModifier0(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[0] != 0) {
+            switch (flagArray[0]) {
+                case 1:
+                case 3: {
+                    this.width((modifier._width_0_0value as Length | LayoutPolicy | undefined));
+                    break;
+                }
+                default: {
+                    this.width(undefined);
+                }
+            }
+        }
+        if (flagArray[1] != 0) {
+            switch (flagArray[1]) {
+                case 1:
+                case 3: {
+                    this.height((modifier._height_0_0value as Length | LayoutPolicy | undefined));
+                    break;
+                }
+                default: {
+                    this.height(undefined);
+                }
+            }
+        }
+        if (flagArray[2] != 0) {
+            switch (flagArray[2]) {
+                case 1:
+                case 3: {
+                    this.drawModifier((modifier._drawModifier_0_0value as DrawModifier | undefined));
+                    break;
+                }
+                default: {
+                    this.drawModifier(undefined);
+                }
+            }
+        }
+        if (flagArray[3] != 0) {
+            switch (flagArray[3]) {
+                case 1:
+                case 3: {
+                    this.responseRegion((modifier._responseRegion_0_0value as Array<Rectangle> | Rectangle | undefined));
+                    break;
+                }
+                default: {
+                    this.responseRegion(undefined);
+                }
+            }
+        }
+        if (flagArray[4] != 0) {
+            switch (flagArray[4]) {
+                case 1:
+                case 3: {
+                    this.mouseResponseRegion((modifier._mouseResponseRegion_0_0value as Array<Rectangle> | Rectangle | undefined));
+                    break;
+                }
+                default: {
+                    this.mouseResponseRegion(undefined);
+                }
+            }
+        }
+        if (flagArray[5] != 0) {
+            switch (flagArray[5]) {
+                case 1:
+                case 3: {
+                    this.responseRegionList((modifier._responseRegionList_0_0value as Array<ResponseRegion> | undefined));
+                    break;
+                }
+                default: {
+                    this.responseRegionList(undefined);
+                }
+            }
+        }
+        if (flagArray[6] != 0) {
+            switch (flagArray[6]) {
+                case 1:
+                case 3: {
+                    this.size((modifier._size_0_0value as SizeOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.size(undefined);
+                }
+            }
+        }
+        if (flagArray[7] != 0) {
+            switch (flagArray[7]) {
+                case 1:
+                case 3: {
+                    this.constraintSize((modifier._constraintSize_0_0value as ConstraintSizeOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.constraintSize(undefined);
+                }
+            }
+        }
+        if (flagArray[8] != 0) {
+            switch (flagArray[8]) {
+                case 1:
+                case 3: {
+                    this.hitTestBehavior((modifier._hitTestBehavior_0_0value as HitTestMode | undefined));
+                    break;
+                }
+                default: {
+                    this.hitTestBehavior(undefined);
+                }
+            }
+        }
+        if (flagArray[9] != 0) {
+            switch (flagArray[9]) {
+                case 1:
+                case 3: {
+                    this.onChildTouchTest((modifier._onChildTouchTest_0_0value as ((value: Array<TouchTestInfo>) => TouchResult) | undefined));
+                    break;
+                }
+                default: {
+                    this.onChildTouchTest(undefined);
+                }
+            }
+        }
+        if (flagArray[10] != 0) {
+            switch (flagArray[10]) {
+                case 1:
+                case 3: {
+                    this.layoutWeight((modifier._layoutWeight_0_0value as double | string | undefined));
+                    break;
+                }
+                default: {
+                    this.layoutWeight(undefined);
+                }
+            }
+        }
+        if (flagArray[11] != 0) {
+            switch (flagArray[11]) {
+                case 1:
+                case 3: {
+                    this.chainWeight((modifier._chainWeight_0_0value as ChainWeightOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.chainWeight(undefined);
+                }
+            }
+        }
+        if (flagArray[12] != 0) {
+            switch (flagArray[12]) {
+                case 1:
+                case 3: {
+                    this.padding((modifier._padding_0_0value as Padding | Length | LocalizedPadding | undefined));
+                    break;
+                }
+                default: {
+                    this.padding(undefined);
+                }
+            }
+        }
+        if (flagArray[13] != 0) {
+            switch (flagArray[13]) {
+                case 1:
+                case 3: {
+                    this.safeAreaPadding((modifier._safeAreaPadding_0_0value as Padding | arkui_Graphics_LengthMetrics | LocalizedPadding | undefined));
+                    break;
+                }
+                default: {
+                    this.safeAreaPadding(undefined);
+                }
+            }
+        }
+        if (flagArray[14] != 0) {
+            switch (flagArray[14]) {
+                case 1:
+                case 3: {
+                    this.margin((modifier._margin_0_0value as Margin | Length | LocalizedMargin | undefined));
+                    break;
+                }
+                default: {
+                    this.margin(undefined);
+                }
+            }
+        }
+        if (flagArray[15] != 0) {
+            switch (flagArray[15]) {
+                case 1:
+                case 3: {
+                    this.backgroundColor((modifier._backgroundColor_0_0value as ResourceColor | arkui_component_units_ColorMetrics | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundColor(undefined);
+                }
+            }
+        }
+        if (flagArray[16] != 0) {
+            switch (flagArray[16]) {
+                case 1:
+                case 3: {
+                    this.pixelRound((modifier._pixelRound_0_0value as PixelRoundPolicy | undefined));
+                    break;
+                }
+                default: {
+                    this.pixelRound(undefined);
+                }
+            }
+        }
+        if (flagArray[17] != 0) {
+            switch (flagArray[17]) {
+                case 1:
+                case 3: {
+                    this.backgroundImage((modifier._backgroundImage_0_0value as ResourceStr | PixelMap | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundImage(undefined);
+                }
+            }
+        }
+        if (flagArray[18] != 0) {
+            switch (flagArray[18]) {
+                case 1:
+                case 3: {
+                    this.backgroundImageSize((modifier._backgroundImageSize_0_0value as SizeOptions | ImageSize | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundImageSize(undefined);
+                }
+            }
+        }
+        if (flagArray[19] != 0) {
+            switch (flagArray[19]) {
+                case 1:
+                case 3: {
+                    this.backgroundImagePosition((modifier._backgroundImagePosition_0_0value as Position | Alignment | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundImagePosition(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier1(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[20] != 0) {
+            switch (flagArray[20]) {
+                case 1:
+                case 3: {
+                    this.backgroundImageResizable((modifier._backgroundImageResizable_0_0value as ResizableOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundImageResizable(undefined);
+                }
+            }
+        }
+        if (flagArray[21] != 0) {
+            switch (flagArray[21]) {
+                case 1:
+                case 3: {
+                    this.foregroundEffect((modifier._foregroundEffect_0_0value as ForegroundEffectOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.foregroundEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[22] != 0) {
+            switch (flagArray[22]) {
+                case 1:
+                case 3: {
+                    this.visualEffect((modifier._visualEffect_0_0value as VisualEffect | undefined));
+                    break;
+                }
+                default: {
+                    this.visualEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[23] != 0) {
+            switch (flagArray[23]) {
+                case 1:
+                case 3: {
+                    this.backgroundFilter((modifier._backgroundFilter_0_0value as Filter | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundFilter(undefined);
+                }
+            }
+        }
+        if (flagArray[24] != 0) {
+            switch (flagArray[24]) {
+                case 1:
+                case 3: {
+                    this.foregroundFilter((modifier._foregroundFilter_0_0value as Filter | undefined));
+                    break;
+                }
+                default: {
+                    this.foregroundFilter(undefined);
+                }
+            }
+        }
+        if (flagArray[25] != 0) {
+            switch (flagArray[25]) {
+                case 1:
+                case 3: {
+                    this.compositingFilter((modifier._compositingFilter_0_0value as Filter | undefined));
+                    break;
+                }
+                default: {
+                    this.compositingFilter(undefined);
+                }
+            }
+        }
+        if (flagArray[26] != 0) {
+            switch (flagArray[26]) {
+                case 1:
+                case 3: {
+                    this.materialFilter((modifier._materialFilter_0_0value as Filter | undefined));
+                    break;
+                }
+                default: {
+                    this.materialFilter(undefined);
+                }
+            }
+        }
+        if (flagArray[27] != 0) {
+            switch (flagArray[27]) {
+                case 1:
+                case 3: {
+                    this.opacity((modifier._opacity_0_0value as double | global_resource_Resource | undefined));
+                    break;
+                }
+                default: {
+                    this.opacity(undefined);
+                }
+            }
+        }
+        if (flagArray[28] != 0) {
+            switch (flagArray[28]) {
+                case 1:
+                case 3: {
+                    this.border((modifier._border_0_0value as BorderOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.border(undefined);
+                }
+            }
+        }
+        if (flagArray[29] != 0) {
+            switch (flagArray[29]) {
+                case 1:
+                case 3: {
+                    this.borderStyle((modifier._borderStyle_0_0value as BorderStyle | EdgeStyles | undefined));
+                    break;
+                }
+                default: {
+                    this.borderStyle(undefined);
+                }
+            }
+        }
+        if (flagArray[30] != 0) {
+            switch (flagArray[30]) {
+                case 1:
+                case 3: {
+                    this.borderWidth((modifier._borderWidth_0_0value as Length | EdgeWidths | LocalizedEdgeWidths | undefined));
+                    break;
+                }
+                default: {
+                    this.borderWidth(undefined);
+                }
+            }
+        }
+        if (flagArray[31] != 0) {
+            switch (flagArray[31]) {
+                case 1:
+                case 3: {
+                    this.borderColor((modifier._borderColor_0_0value as ResourceColor | EdgeColors | LocalizedEdgeColors | undefined));
+                    break;
+                }
+                default: {
+                    this.borderColor(undefined);
+                }
+            }
+        }
+        if (flagArray[32] != 0) {
+            switch (flagArray[32]) {
+                case 1:
+                case 3: {
+                    this.borderImage((modifier._borderImage_0_0value as BorderImageOption | undefined));
+                    break;
+                }
+                default: {
+                    this.borderImage(undefined);
+                }
+            }
+        }
+        if (flagArray[33] != 0) {
+            switch (flagArray[33]) {
+                case 1:
+                case 3: {
+                    this.outline((modifier._outline_0_0value as OutlineOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.outline(undefined);
+                }
+            }
+        }
+        if (flagArray[34] != 0) {
+            switch (flagArray[34]) {
+                case 1:
+                case 3: {
+                    this.outlineStyle((modifier._outlineStyle_0_0value as OutlineStyle | EdgeOutlineStyles | undefined));
+                    break;
+                }
+                default: {
+                    this.outlineStyle(undefined);
+                }
+            }
+        }
+        if (flagArray[35] != 0) {
+            switch (flagArray[35]) {
+                case 1:
+                case 3: {
+                    this.outlineWidth((modifier._outlineWidth_0_0value as Dimension | EdgeOutlineWidths | undefined));
+                    break;
+                }
+                default: {
+                    this.outlineWidth(undefined);
+                }
+            }
+        }
+        if (flagArray[36] != 0) {
+            switch (flagArray[36]) {
+                case 1:
+                case 3: {
+                    this.outlineColor((modifier._outlineColor_0_0value as ResourceColor | EdgeColors | LocalizedEdgeColors | undefined));
+                    break;
+                }
+                default: {
+                    this.outlineColor(undefined);
+                }
+            }
+        }
+        if (flagArray[37] != 0) {
+            switch (flagArray[37]) {
+                case 1:
+                case 3: {
+                    this.outlineRadius((modifier._outlineRadius_0_0value as Dimension | OutlineRadiuses | undefined));
+                    break;
+                }
+                default: {
+                    this.outlineRadius(undefined);
+                }
+            }
+        }
+        if (flagArray[38] != 0) {
+            switch (flagArray[38]) {
+                case 1:
+                case 3: {
+                    this.foregroundColor((modifier._foregroundColor_0_0value as ResourceColor | ColoringStrategy | undefined));
+                    break;
+                }
+                default: {
+                    this.foregroundColor(undefined);
+                }
+            }
+        }
+        if (flagArray[39] != 0) {
+            switch (flagArray[39]) {
+                case 1:
+                case 3: {
+                    this.onClick((modifier._onClick_0_0value as ((event: ClickEvent) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onClick(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier2(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[40] != 0) {
+            switch (flagArray[40]) {
+                case 1:
+                case 3: {
+                    this.onHover((modifier._onHover_0_0value as ((isHover: boolean,event: HoverEvent) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onHover(undefined);
+                }
+            }
+        }
+        if (flagArray[41] != 0) {
+            switch (flagArray[41]) {
+                case 1:
+                case 3: {
+                    this.onHoverMove((modifier._onHoverMove_0_0value as arkui_component_common_Callback<HoverEvent, void> | undefined));
+                    break;
+                }
+                default: {
+                    this.onHoverMove(undefined);
+                }
+            }
+        }
+        if (flagArray[42] != 0) {
+            switch (flagArray[42]) {
+                case 1:
+                case 3: {
+                    this.onAccessibilityHover((modifier._onAccessibilityHover_0_0value as AccessibilityCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onAccessibilityHover(undefined);
+                }
+            }
+        }
+        if (flagArray[43] != 0) {
+            switch (flagArray[43]) {
+                case 1:
+                case 3: {
+                    this.onAccessibilityHoverTransparent((modifier._onAccessibilityHoverTransparent_0_0value as AccessibilityTransparentCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onAccessibilityHoverTransparent(undefined);
+                }
+            }
+        }
+        if (flagArray[44] != 0) {
+            switch (flagArray[44]) {
+                case 1:
+                case 3: {
+                    this.hoverEffect((modifier._hoverEffect_0_0value as HoverEffect | undefined));
+                    break;
+                }
+                default: {
+                    this.hoverEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[45] != 0) {
+            switch (flagArray[45]) {
+                case 1:
+                case 3: {
+                    this.onMouse((modifier._onMouse_0_0value as ((event: MouseEvent) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onMouse(undefined);
+                }
+            }
+        }
+        if (flagArray[46] != 0) {
+            switch (flagArray[46]) {
+                case 1:
+                case 3: {
+                    this.onTouch((modifier._onTouch_0_0value as ((event: TouchEvent) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onTouch(undefined);
+                }
+            }
+        }
+        if (flagArray[47] != 0) {
+            switch (flagArray[47]) {
+                case 1:
+                case 3: {
+                    this.onKeyEvent((modifier._onKeyEvent_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    break;
+                }
+                default: {
+                    this.onKeyEvent(undefined);
+                }
+            }
+        }
+        if (flagArray[48] != 0) {
+            switch (flagArray[48]) {
+                case 1:
+                case 3: {
+                    this.onDigitalCrown((modifier._onDigitalCrown_0_0value as arkui_component_common_Callback<CrownEvent, void> | undefined));
+                    break;
+                }
+                default: {
+                    this.onDigitalCrown(undefined);
+                }
+            }
+        }
+        if (flagArray[49] != 0) {
+            switch (flagArray[49]) {
+                case 1:
+                case 3: {
+                    this.onKeyPreIme((modifier._onKeyPreIme_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    break;
+                }
+                default: {
+                    this.onKeyPreIme(undefined);
+                }
+            }
+        }
+        if (flagArray[50] != 0) {
+            switch (flagArray[50]) {
+                case 1:
+                case 3: {
+                    this.onKeyEventDispatch((modifier._onKeyEventDispatch_0_0value as arkui_component_common_Callback<KeyEvent, boolean> | undefined));
+                    break;
+                }
+                default: {
+                    this.onKeyEventDispatch(undefined);
+                }
+            }
+        }
+        if (flagArray[51] != 0) {
+            switch (flagArray[51]) {
+                case 1:
+                case 3: {
+                    this.onFocusAxisEvent((modifier._onFocusAxisEvent_0_0value as arkui_component_common_Callback<FocusAxisEvent, void> | undefined));
+                    break;
+                }
+                default: {
+                    this.onFocusAxisEvent(undefined);
+                }
+            }
+        }
+        if (flagArray[52] != 0) {
+            switch (flagArray[52]) {
+                case 1:
+                case 3: {
+                    this.onAxisEvent((modifier._onAxisEvent_0_0value as arkui_component_common_Callback<AxisEvent, void> | undefined));
+                    break;
+                }
+                default: {
+                    this.onAxisEvent(undefined);
+                }
+            }
+        }
+        if (flagArray[53] != 0) {
+            switch (flagArray[53]) {
+                case 1:
+                case 3: {
+                    this.focusable((modifier._focusable_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.focusable(undefined);
+                }
+            }
+        }
+        if (flagArray[54] != 0) {
+            switch (flagArray[54]) {
+                case 1:
+                case 3: {
+                    this.nextFocus((modifier._nextFocus_0_0value as FocusMovement | undefined));
+                    break;
+                }
+                default: {
+                    this.nextFocus(undefined);
+                }
+            }
+        }
+        if (flagArray[55] != 0) {
+            switch (flagArray[55]) {
+                case 1:
+                case 3: {
+                    this.tabStop((modifier._tabStop_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.tabStop(undefined);
+                }
+            }
+        }
+        if (flagArray[56] != 0) {
+            switch (flagArray[56]) {
+                case 1:
+                case 3: {
+                    this.onFocus((modifier._onFocus_0_0value as (() => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onFocus(undefined);
+                }
+            }
+        }
+        if (flagArray[57] != 0) {
+            switch (flagArray[57]) {
+                case 1:
+                case 3: {
+                    this.onBlur((modifier._onBlur_0_0value as (() => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onBlur(undefined);
+                }
+            }
+        }
+        if (flagArray[58] != 0) {
+            switch (flagArray[58]) {
+                case 1:
+                case 3: {
+                    this.tabIndex((modifier._tabIndex_0_0value as int32 | undefined));
+                    break;
+                }
+                default: {
+                    this.tabIndex(undefined);
+                }
+            }
+        }
+        if (flagArray[59] != 0) {
+            switch (flagArray[59]) {
+                case 1:
+                case 3: {
+                    this.defaultFocus((modifier._defaultFocus_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.defaultFocus(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier3(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[60] != 0) {
+            switch (flagArray[60]) {
+                case 1:
+                case 3: {
+                    this.groupDefaultFocus((modifier._groupDefaultFocus_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.groupDefaultFocus(undefined);
+                }
+            }
+        }
+        if (flagArray[61] != 0) {
+            switch (flagArray[61]) {
+                case 1:
+                case 3: {
+                    this.focusOnTouch((modifier._focusOnTouch_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.focusOnTouch(undefined);
+                }
+            }
+        }
+        if (flagArray[62] != 0) {
+            switch (flagArray[62]) {
+                case 1:
+                case 3: {
+                    this.focusBox((modifier._focusBox_0_0value as FocusBoxStyle | undefined));
+                    break;
+                }
+                default: {
+                    this.focusBox(undefined);
+                }
+            }
+        }
+        if (flagArray[63] != 0) {
+            switch (flagArray[63]) {
+                case 1:
+                case 3: {
+                    this.animation((modifier._animation_0_0value as AnimateParam | undefined));
+                    break;
+                }
+                default: {
+                    this.animation(undefined);
+                }
+            }
+        }
+        if (flagArray[64] != 0) {
+            switch (flagArray[64]) {
+                case 1:
+                case 3: {
+                    this.transition((modifier._transition_0_0value as TransitionEffect | undefined));
+                    break;
+                }
+                default: {
+                    this.transition(undefined);
+                }
+            }
+        }
+        if (flagArray[65] != 0) {
+            switch (flagArray[65]) {
+                case 1:
+                case 3: {
+                    this.motionBlur((modifier._motionBlur_0_0value as MotionBlurOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.motionBlur(undefined);
+                }
+            }
+        }
+        if (flagArray[66] != 0) {
+            switch (flagArray[66]) {
+                case 1:
+                case 3: {
+                    this.brightness((modifier._brightness_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.brightness(undefined);
+                }
+            }
+        }
+        if (flagArray[67] != 0) {
+            switch (flagArray[67]) {
+                case 1:
+                case 3: {
+                    this.contrast((modifier._contrast_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.contrast(undefined);
+                }
+            }
+        }
+        if (flagArray[68] != 0) {
+            switch (flagArray[68]) {
+                case 1:
+                case 3: {
+                    this.grayscale((modifier._grayscale_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.grayscale(undefined);
+                }
+            }
+        }
+        if (flagArray[69] != 0) {
+            switch (flagArray[69]) {
+                case 1:
+                case 3: {
+                    this.colorBlend((modifier._colorBlend_0_0value as arkui_component_enums_Color | string | global_resource_Resource | undefined));
+                    break;
+                }
+                default: {
+                    this.colorBlend(undefined);
+                }
+            }
+        }
+        if (flagArray[70] != 0) {
+            switch (flagArray[70]) {
+                case 1:
+                case 3: {
+                    this.saturate((modifier._saturate_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.saturate(undefined);
+                }
+            }
+        }
+        if (flagArray[71] != 0) {
+            switch (flagArray[71]) {
+                case 1:
+                case 3: {
+                    this.sepia((modifier._sepia_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.sepia(undefined);
+                }
+            }
+        }
+        if (flagArray[72] != 0) {
+            switch (flagArray[72]) {
+                case 1:
+                case 3: {
+                    this.invert((modifier._invert_0_0value as double | InvertOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.invert(undefined);
+                }
+            }
+        }
+        if (flagArray[73] != 0) {
+            switch (flagArray[73]) {
+                case 1:
+                case 3: {
+                    this.hueRotate((modifier._hueRotate_0_0value as double | string | undefined));
+                    break;
+                }
+                default: {
+                    this.hueRotate(undefined);
+                }
+            }
+        }
+        if (flagArray[74] != 0) {
+            switch (flagArray[74]) {
+                case 1:
+                case 3: {
+                    this.useShadowBatching((modifier._useShadowBatching_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.useShadowBatching(undefined);
+                }
+            }
+        }
+        if (flagArray[75] != 0) {
+            switch (flagArray[75]) {
+                case 1:
+                case 3: {
+                    this.useEffect((modifier._useEffect_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.useEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[76] != 0) {
+            switch (flagArray[76]) {
+                case 1:
+                case 3: {
+                    this.useUnionEffect((modifier._useUnionEffect_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.useUnionEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[77] != 0) {
+            switch (flagArray[77]) {
+                case 1:
+                case 3: {
+                    this.renderGroup((modifier._renderGroup_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.renderGroup(undefined);
+                }
+            }
+        }
+        if (flagArray[78] != 0) {
+            switch (flagArray[78]) {
+                case 1:
+                case 3: {
+                    this.excludeFromRenderGroup((modifier._excludeFromRenderGroup_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.excludeFromRenderGroup(undefined);
+                }
+            }
+        }
+        if (flagArray[79] != 0) {
+            switch (flagArray[79]) {
+                case 1:
+                case 3: {
+                    this.freeze((modifier._freeze_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.freeze(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier4(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[80] != 0) {
+            switch (flagArray[80]) {
+                case 1:
+                case 3: {
+                    this.translate((modifier._translate_0_0value as TranslateOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.translate(undefined);
+                }
+            }
+        }
+        if (flagArray[81] != 0) {
+            switch (flagArray[81]) {
+                case 1:
+                case 3: {
+                    this.scale((modifier._scale_0_0value as ScaleOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.scale(undefined);
+                }
+            }
+        }
+        if (flagArray[82] != 0) {
+            switch (flagArray[82]) {
+                case 1:
+                case 3: {
+                    this.rotate((modifier._rotate_0_0value as RotateOptions | RotateAngleOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.rotate(undefined);
+                }
+            }
+        }
+        if (flagArray[83] != 0) {
+            switch (flagArray[83]) {
+                case 1:
+                case 3: {
+                    this.transform((modifier._transform_0_0value as Matrix4Transit | undefined));
+                    break;
+                }
+                default: {
+                    this.transform(undefined);
+                }
+            }
+        }
+        if (flagArray[84] != 0) {
+            switch (flagArray[84]) {
+                case 1:
+                case 3: {
+                    this.transform3D((modifier._transform3D_0_0value as Matrix4Transit | undefined));
+                    break;
+                }
+                default: {
+                    this.transform3D(undefined);
+                }
+            }
+        }
+        if (flagArray[85] != 0) {
+            switch (flagArray[85]) {
+                case 1:
+                case 3: {
+                    this.onAppear((modifier._onAppear_0_0value as (() => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onAppear(undefined);
+                }
+            }
+        }
+        if (flagArray[86] != 0) {
+            switch (flagArray[86]) {
+                case 1:
+                case 3: {
+                    this.onDisAppear((modifier._onDisAppear_0_0value as (() => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDisAppear(undefined);
+                }
+            }
+        }
+        if (flagArray[87] != 0) {
+            switch (flagArray[87]) {
+                case 1:
+                case 3: {
+                    this.onAttach((modifier._onAttach_0_0value as VoidCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onAttach(undefined);
+                }
+            }
+        }
+        if (flagArray[88] != 0) {
+            switch (flagArray[88]) {
+                case 1:
+                case 3: {
+                    this.onDetach((modifier._onDetach_0_0value as VoidCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onDetach(undefined);
+                }
+            }
+        }
+        if (flagArray[89] != 0) {
+            switch (flagArray[89]) {
+                case 1:
+                case 3: {
+                    this.onAreaChange((modifier._onAreaChange_0_0value as ((oldValue: Area,newValue: Area) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onAreaChange(undefined);
+                }
+            }
+        }
+        if (flagArray[90] != 0) {
+            switch (flagArray[90]) {
+                case 1:
+                case 3: {
+                    this.visibility((modifier._visibility_0_0value as Visibility | undefined));
+                    break;
+                }
+                default: {
+                    this.visibility(undefined);
+                }
+            }
+        }
+        if (flagArray[91] != 0) {
+            switch (flagArray[91]) {
+                case 1:
+                case 3: {
+                    this.flexGrow((modifier._flexGrow_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.flexGrow(undefined);
+                }
+            }
+        }
+        if (flagArray[92] != 0) {
+            switch (flagArray[92]) {
+                case 1:
+                case 3: {
+                    this.flexShrink((modifier._flexShrink_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.flexShrink(undefined);
+                }
+            }
+        }
+        if (flagArray[93] != 0) {
+            switch (flagArray[93]) {
+                case 1:
+                case 3: {
+                    this.flexBasis((modifier._flexBasis_0_0value as double | string | undefined));
+                    break;
+                }
+                default: {
+                    this.flexBasis(undefined);
+                }
+            }
+        }
+        if (flagArray[94] != 0) {
+            switch (flagArray[94]) {
+                case 1:
+                case 3: {
+                    this.alignSelf((modifier._alignSelf_0_0value as ItemAlign | undefined));
+                    break;
+                }
+                default: {
+                    this.alignSelf(undefined);
+                }
+            }
+        }
+        if (flagArray[95] != 0) {
+            switch (flagArray[95]) {
+                case 1:
+                case 3: {
+                    this.layoutGravity((modifier._layoutGravity_0_0value as LocalizedAlignment | undefined));
+                    break;
+                }
+                default: {
+                    this.layoutGravity(undefined);
+                }
+            }
+        }
+        if (flagArray[96] != 0) {
+            switch (flagArray[96]) {
+                case 1:
+                case 3: {
+                    this.displayPriority((modifier._displayPriority_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.displayPriority(undefined);
+                }
+            }
+        }
+        if (flagArray[97] != 0) {
+            switch (flagArray[97]) {
+                case 1:
+                case 3: {
+                    this.zIndex((modifier._zIndex_0_0value as int32 | undefined));
+                    break;
+                }
+                default: {
+                    this.zIndex(undefined);
+                }
+            }
+        }
+        if (flagArray[98] != 0) {
+            switch (flagArray[98]) {
+                case 1:
+                case 3: {
+                    this.direction((modifier._direction_0_0value as Direction | undefined));
+                    break;
+                }
+                default: {
+                    this.direction(undefined);
+                }
+            }
+        }
+        if (flagArray[99] != 0) {
+            switch (flagArray[99]) {
+                case 1:
+                case 3: {
+                    this.align((modifier._align_0_0value as Alignment | LocalizedAlignment | undefined));
+                    break;
+                }
+                default: {
+                    this.align(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier5(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[100] != 0) {
+            switch (flagArray[100]) {
+                case 1:
+                case 3: {
+                    this.position((modifier._position_0_0value as Position | Edges | LocalizedEdges | undefined));
+                    break;
+                }
+                default: {
+                    this.position(undefined);
+                }
+            }
+        }
+        if (flagArray[101] != 0) {
+            switch (flagArray[101]) {
+                case 1:
+                case 3: {
+                    this.markAnchor((modifier._markAnchor_0_0value as Position | LocalizedPosition | undefined));
+                    break;
+                }
+                default: {
+                    this.markAnchor(undefined);
+                }
+            }
+        }
+        if (flagArray[102] != 0) {
+            switch (flagArray[102]) {
+                case 1:
+                case 3: {
+                    this.offset((modifier._offset_0_0value as Position | Edges | LocalizedEdges | undefined));
+                    break;
+                }
+                default: {
+                    this.offset(undefined);
+                }
+            }
+        }
+        if (flagArray[103] != 0) {
+            switch (flagArray[103]) {
+                case 1:
+                case 3: {
+                    this.enabled((modifier._enabled_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.enabled(undefined);
+                }
+            }
+        }
+        if (flagArray[104] != 0) {
+            switch (flagArray[104]) {
+                case 1:
+                case 3: {
+                    this.alignRules((modifier._alignRules_0_0value as AlignRuleOption | LocalizedAlignRuleOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.alignRules(undefined);
+                }
+            }
+        }
+        if (flagArray[105] != 0) {
+            switch (flagArray[105]) {
+                case 1:
+                case 3: {
+                    this.aspectRatio((modifier._aspectRatio_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.aspectRatio(undefined);
+                }
+            }
+        }
+        if (flagArray[106] != 0) {
+            switch (flagArray[106]) {
+                case 1:
+                case 3: {
+                    this.clickEffect((modifier._clickEffect_0_0value as ClickEffect | null | undefined));
+                    break;
+                }
+                default: {
+                    this.clickEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[107] != 0) {
+            switch (flagArray[107]) {
+                case 1:
+                case 3: {
+                    this.enableClickSoundEffect((modifier._enableClickSoundEffect_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.enableClickSoundEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[108] != 0) {
+            switch (flagArray[108]) {
+                case 1:
+                case 3: {
+                    this.onDragStart((modifier._onDragStart_0_0value as ((event: DragEvent,extraParams?: string) => CustomBuilder | DragItemInfo) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragStart(undefined);
+                }
+            }
+        }
+        if (flagArray[109] != 0) {
+            switch (flagArray[109]) {
+                case 1:
+                case 3: {
+                    this.onDragEnter((modifier._onDragEnter_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragEnter(undefined);
+                }
+            }
+        }
+        if (flagArray[110] != 0) {
+            switch (flagArray[110]) {
+                case 1:
+                case 3: {
+                    this.onDragMove((modifier._onDragMove_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragMove(undefined);
+                }
+            }
+        }
+        if (flagArray[111] != 0) {
+            switch (flagArray[111]) {
+                case 1:
+                case 3: {
+                    this.onDragLeave((modifier._onDragLeave_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragLeave(undefined);
+                }
+            }
+        }
+        if (flagArray[112] != 0) {
+            switch (flagArray[112]) {
+                case 1:
+                case 3: {
+                    this.onDrop((modifier._onDrop_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDrop(undefined);
+                }
+            }
+        }
+        if (flagArray[113] != 0) {
+            switch (flagArray[113]) {
+                case 1:
+                case 3: {
+                    this.onDragEnd((modifier._onDragEnd_0_0value as ((event: DragEvent,extraParams?: string) => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragEnd(undefined);
+                }
+            }
+        }
+        if (flagArray[114] != 0) {
+            switch (flagArray[114]) {
+                case 1:
+                case 3: {
+                    this.allowDrop((modifier._allowDrop_0_0value as Array<UniformDataType> | Array<string> | null | undefined));
+                    break;
+                }
+                default: {
+                    this.allowDrop(undefined);
+                }
+            }
+        }
+        if (flagArray[115] != 0) {
+            switch (flagArray[115]) {
+                case 1:
+                case 3: {
+                    this.draggable((modifier._draggable_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.draggable(undefined);
+                }
+            }
+        }
+        if (flagArray[116] != 0) {
+            switch (flagArray[116]) {
+                case 1:
+                case 3: {
+                    this.onPreDrag((modifier._onPreDrag_0_0value as arkui_component_common_Callback<PreDragStatus, void> | undefined));
+                    break;
+                }
+                default: {
+                    this.onPreDrag(undefined);
+                }
+            }
+        }
+        if (flagArray[117] != 0) {
+            switch (flagArray[117]) {
+                case 1:
+                case 3: {
+                    this.linearGradient((modifier._linearGradient_0_0value as LinearGradientOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.linearGradient(undefined);
+                }
+            }
+        }
+        if (flagArray[118] != 0) {
+            switch (flagArray[118]) {
+                case 1:
+                case 3: {
+                    this.sweepGradient((modifier._sweepGradient_0_0value as SweepGradientOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.sweepGradient(undefined);
+                }
+            }
+        }
+        if (flagArray[119] != 0) {
+            switch (flagArray[119]) {
+                case 1:
+                case 3: {
+                    this.radialGradient((modifier._radialGradient_0_0value as RadialGradientOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.radialGradient(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier6(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[120] != 0) {
+            switch (flagArray[120]) {
+                case 1:
+                case 3: {
+                    this.motionPath((modifier._motionPath_0_0value as MotionPathOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.motionPath(undefined);
+                }
+            }
+        }
+        if (flagArray[121] != 0) {
+            switch (flagArray[121]) {
+                case 1:
+                case 3: {
+                    this.shadow((modifier._shadow_0_0value as ShadowOptions | ShadowStyle | undefined));
+                    break;
+                }
+                default: {
+                    this.shadow(undefined);
+                }
+            }
+        }
+        if (flagArray[122] != 0) {
+            switch (flagArray[122]) {
+                case 1:
+                case 3: {
+                    this.clip((modifier._clip_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.clip(undefined);
+                }
+            }
+        }
+        if (flagArray[123] != 0) {
+            switch (flagArray[123]) {
+                case 1:
+                case 3: {
+                    this.clipShape((modifier._clipShape_0_0value as CircleShape | EllipseShape | PathShape | RectShape | undefined));
+                    break;
+                }
+                default: {
+                    this.clipShape(undefined);
+                }
+            }
+        }
+        if (flagArray[124] != 0) {
+            switch (flagArray[124]) {
+                case 1:
+                case 3: {
+                    this.mask((modifier._mask_0_0value as ProgressMask | undefined));
+                    break;
+                }
+                default: {
+                    this.mask(undefined);
+                }
+            }
+        }
+        if (flagArray[125] != 0) {
+            switch (flagArray[125]) {
+                case 1:
+                case 3: {
+                    this.maskShape((modifier._maskShape_0_0value as CircleShape | EllipseShape | PathShape | RectShape | undefined));
+                    break;
+                }
+                default: {
+                    this.maskShape(undefined);
+                }
+            }
+        }
+        if (flagArray[126] != 0) {
+            switch (flagArray[126]) {
+                case 1:
+                case 3: {
+                    this.key((modifier._key_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.key(undefined);
+                }
+            }
+        }
+        if (flagArray[127] != 0) {
+            switch (flagArray[127]) {
+                case 1:
+                case 3: {
+                    this.id((modifier._id_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.id(undefined);
+                }
+            }
+        }
+        if (flagArray[128] != 0) {
+            switch (flagArray[128]) {
+                case 1:
+                case 3: {
+                    this.stateStyles((modifier._stateStyles_0_0value as StateStyles | undefined));
+                    break;
+                }
+                default: {
+                    this.stateStyles(undefined);
+                }
+            }
+        }
+        if (flagArray[129] != 0) {
+            switch (flagArray[129]) {
+                case 1:
+                case 3: {
+                    this.restoreId((modifier._restoreId_0_0value as int32 | undefined));
+                    break;
+                }
+                default: {
+                    this.restoreId(undefined);
+                }
+            }
+        }
+        if (flagArray[130] != 0) {
+            switch (flagArray[130]) {
+                case 1:
+                case 3: {
+                    this.sphericalEffect((modifier._sphericalEffect_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.sphericalEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[131] != 0) {
+            switch (flagArray[131]) {
+                case 1:
+                case 3: {
+                    this.lightUpEffect((modifier._lightUpEffect_0_0value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.lightUpEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[132] != 0) {
+            switch (flagArray[132]) {
+                case 1:
+                case 3: {
+                    this.pixelStretchEffect((modifier._pixelStretchEffect_0_0value as PixelStretchEffectOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.pixelStretchEffect(undefined);
+                }
+            }
+        }
+        if (flagArray[133] != 0) {
+            switch (flagArray[133]) {
+                case 1:
+                case 3: {
+                    this.accessibilityNextFocusId((modifier._accessibilityNextFocusId_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityNextFocusId(undefined);
+                }
+            }
+        }
+        if (flagArray[134] != 0) {
+            switch (flagArray[134]) {
+                case 1:
+                case 3: {
+                    this.accessibilityDefaultFocus((modifier._accessibilityDefaultFocus_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityDefaultFocus(undefined);
+                }
+            }
+        }
+        if (flagArray[135] != 0) {
+            switch (flagArray[135]) {
+                case 1:
+                case 3: {
+                    this.accessibilityUseSamePage((modifier._accessibilityUseSamePage_0_0value as AccessibilitySamePageMode | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityUseSamePage(undefined);
+                }
+            }
+        }
+        if (flagArray[136] != 0) {
+            switch (flagArray[136]) {
+                case 1:
+                case 3: {
+                    this.accessibilityScrollTriggerable((modifier._accessibilityScrollTriggerable_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityScrollTriggerable(undefined);
+                }
+            }
+        }
+        if (flagArray[137] != 0) {
+            switch (flagArray[137]) {
+                case 1:
+                case 3: {
+                    this.accessibilityText((modifier._accessibilityText_0_0value as global_resource_Resource | string | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityText(undefined);
+                }
+            }
+        }
+        if (flagArray[138] != 0) {
+            switch (flagArray[138]) {
+                case 1:
+                case 3: {
+                    this.accessibilityRole((modifier._accessibilityRole_0_0value as AccessibilityRoleType | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityRole(undefined);
+                }
+            }
+        }
+        if (flagArray[139] != 0) {
+            switch (flagArray[139]) {
+                case 1:
+                case 3: {
+                    this.onAccessibilityFocus((modifier._onAccessibilityFocus_0_0value as AccessibilityFocusCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onAccessibilityFocus(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier7(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[140] != 0) {
+            switch (flagArray[140]) {
+                case 1:
+                case 3: {
+                    this.onAccessibilityActionIntercept((modifier._onAccessibilityActionIntercept_0_0value as AccessibilityActionInterceptCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onAccessibilityActionIntercept(undefined);
+                }
+            }
+        }
+        if (flagArray[141] != 0) {
+            switch (flagArray[141]) {
+                case 1:
+                case 3: {
+                    this.accessibilityTextHint((modifier._accessibilityTextHint_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityTextHint(undefined);
+                }
+            }
+        }
+        if (flagArray[142] != 0) {
+            switch (flagArray[142]) {
+                case 1:
+                case 3: {
+                    this.accessibilityDescription((modifier._accessibilityDescription_0_0value as global_resource_Resource | string | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityDescription(undefined);
+                }
+            }
+        }
+        if (flagArray[143] != 0) {
+            switch (flagArray[143]) {
+                case 1:
+                case 3: {
+                    this.accessibilityLevel((modifier._accessibilityLevel_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityLevel(undefined);
+                }
+            }
+        }
+        if (flagArray[144] != 0) {
+            switch (flagArray[144]) {
+                case 1:
+                case 3: {
+                    this.accessibilityVirtualNode((modifier._accessibilityVirtualNode_0_0value as CustomBuilder | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityVirtualNode(undefined);
+                }
+            }
+        }
+        if (flagArray[145] != 0) {
+            switch (flagArray[145]) {
+                case 1:
+                case 3: {
+                    this.accessibilityChecked((modifier._accessibilityChecked_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityChecked(undefined);
+                }
+            }
+        }
+        if (flagArray[146] != 0) {
+            switch (flagArray[146]) {
+                case 1:
+                case 3: {
+                    this.accessibilitySelected((modifier._accessibilitySelected_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilitySelected(undefined);
+                }
+            }
+        }
+        if (flagArray[147] != 0) {
+            switch (flagArray[147]) {
+                case 1:
+                case 3: {
+                    this.obscured((modifier._obscured_0_0value as Array<ObscuredReasons> | undefined));
+                    break;
+                }
+                default: {
+                    this.obscured(undefined);
+                }
+            }
+        }
+        if (flagArray[148] != 0) {
+            switch (flagArray[148]) {
+                case 1:
+                case 3: {
+                    this.reuseId((modifier._reuseId_0_0value as string | undefined));
+                    break;
+                }
+                default: {
+                    this.reuseId(undefined);
+                }
+            }
+        }
+        if (flagArray[149] != 0) {
+            switch (flagArray[149]) {
+                case 1:
+                case 3: {
+                    this.reuse((modifier._reuse_0_0value as ReuseOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.reuse(undefined);
+                }
+            }
+        }
+        if (flagArray[150] != 0) {
+            switch (flagArray[150]) {
+                case 1:
+                case 3: {
+                    this.renderFit((modifier._renderFit_0_0value as RenderFit | undefined));
+                    break;
+                }
+                default: {
+                    this.renderFit(undefined);
+                }
+            }
+        }
+        if (flagArray[151] != 0) {
+            switch (flagArray[151]) {
+                case 1:
+                case 3: {
+                    this.gestureModifier((modifier._gestureModifier_0_0value as GestureModifier | undefined));
+                    break;
+                }
+                default: {
+                    this.gestureModifier(undefined);
+                }
+            }
+        }
+        if (flagArray[152] != 0) {
+            switch (flagArray[152]) {
+                case 1:
+                case 3: {
+                    this.backgroundBrightness((modifier._backgroundBrightness_0_0value as BackgroundBrightnessOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundBrightness(undefined);
+                }
+            }
+        }
+        if (flagArray[153] != 0) {
+            switch (flagArray[153]) {
+                case 1:
+                case 3: {
+                    this.onGestureJudgeBegin((modifier._onGestureJudgeBegin_0_0value as ((gestureInfo: GestureInfo,event: BaseGestureEvent) => GestureJudgeResult) | undefined));
+                    break;
+                }
+                default: {
+                    this.onGestureJudgeBegin(undefined);
+                }
+            }
+        }
+        if (flagArray[154] != 0) {
+            switch (flagArray[154]) {
+                case 1:
+                case 3: {
+                    this.onGestureRecognizerJudgeBegin((modifier._onGestureRecognizerJudgeBegin_0_0value as GestureRecognizerJudgeBeginCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onGestureRecognizerJudgeBegin(undefined);
+                }
+            }
+        }
+        if (flagArray[155] != 0) {
+            switch (flagArray[155]) {
+                case 1:
+                case 3: {
+                    this.shouldBuiltInRecognizerParallelWith((modifier._shouldBuiltInRecognizerParallelWith_0_0value as ShouldBuiltInRecognizerParallelWithCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.shouldBuiltInRecognizerParallelWith(undefined);
+                }
+            }
+        }
+        if (flagArray[156] != 0) {
+            switch (flagArray[156]) {
+                case 1:
+                case 3: {
+                    this.monopolizeEvents((modifier._monopolizeEvents_0_0value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.monopolizeEvents(undefined);
+                }
+            }
+        }
+        if (flagArray[157] != 0) {
+            switch (flagArray[157]) {
+                case 1:
+                case 3: {
+                    this.onTouchIntercept((modifier._onTouchIntercept_0_0value as arkui_component_common_Callback<TouchEvent, HitTestMode> | undefined));
+                    break;
+                }
+                default: {
+                    this.onTouchIntercept(undefined);
+                }
+            }
+        }
+        if (flagArray[158] != 0) {
+            switch (flagArray[158]) {
+                case 1:
+                case 3: {
+                    this.onSizeChange((modifier._onSizeChange_0_0value as SizeChangeCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onSizeChange(undefined);
+                }
+            }
+        }
+        if (flagArray[159] != 0) {
+            switch (flagArray[159]) {
+                case 1:
+                case 3: {
+                    this.accessibilityFocusDrawLevel((modifier._accessibilityFocusDrawLevel_0_0value as FocusDrawLevel | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityFocusDrawLevel(undefined);
+                }
+            }
+        }
+    }
+    mergeModifier8(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[160] != 0) {
+            switch (flagArray[160]) {
+                case 1:
+                case 3: {
+                    this.onTouchTestDone((modifier._onTouchTestDone_0_0value as TouchTestDoneCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onTouchTestDone(undefined);
+                }
+            }
+        }
+        if (flagArray[161] != 0) {
+            switch (flagArray[161]) {
+                case 1:
+                case 3: {
+                    this.systemMaterial((modifier._systemMaterial_0_0value as SystemUiMaterial | undefined));
+                    break;
+                }
+                default: {
+                    this.systemMaterial(undefined);
+                }
+            }
+        }
+        if (flagArray[162] != 0) {
+            switch (flagArray[162]) {
+                case 1:
+                case 3: {
+                    this.onNeedSoftkeyboard((modifier._onNeedSoftkeyboard_0_0value as OnNeedSoftkeyboardCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onNeedSoftkeyboard(undefined);
+                }
+            }
+        }
+        if (flagArray[163] != 0) {
+            switch (flagArray[163]) {
+                case 1:
+                case 3: {
+                    this.accessibilityStateDescription((modifier._accessibilityStateDescription_0_0value as string | global_resource_Resource | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityStateDescription(undefined);
+                }
+            }
+        }
+        if (flagArray[164] != 0) {
+            switch (flagArray[164]) {
+                case 1:
+                case 3: {
+                    this.accessibilityActionOptions((modifier._accessibilityActionOptions_0_0value as AccessibilityActionOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityActionOptions(undefined);
+                }
+            }
+        }
+        if (flagArray[165] != 0) {
+            switch (flagArray[165]) {
+                case 1:
+                case 3: {
+                    this.customProperty((modifier._customProperty_0_0value as string), (modifier._customProperty_0_1value as CustomProperty));
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+        if (flagArray[166] != 0) {
+            switch (flagArray[166]) {
+                case 1:
+                case 3: {
+                    this.expandSafeArea((modifier._expandSafeArea_0_0value as Array<SafeAreaType> | undefined), (modifier._expandSafeArea_0_1value as Array<SafeAreaEdge> | undefined));
+                    break;
+                }
+                default: {
+                    this.expandSafeArea(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[167] != 0) {
+            switch (flagArray[167]) {
+                case 1:
+                case 3: {
+                    this.ignoreLayoutSafeArea((modifier._ignoreLayoutSafeArea_0_0value as Array<LayoutSafeAreaType> | undefined), (modifier._ignoreLayoutSafeArea_0_1value as Array<LayoutSafeAreaEdge> | undefined));
+                    break;
+                }
+                default: {
+                    this.ignoreLayoutSafeArea(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[168] != 0) {
+            switch (flagArray[168]) {
+                case 1:
+                case 3: {
+                    this.background((modifier._background_0_0value as CustomBuilder | ResourceColor | undefined), (modifier._background_0_1value as BackgroundOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.background(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[169] != 0) {
+            switch (flagArray[169]) {
+                case 1:
+                case 3: {
+                    this.backgroundImage((modifier._backgroundImage_1_0value as ResourceStr | PixelMap | undefined), (modifier._backgroundImage_1_1value as BackgroundImageOptions));
+                    break;
+                }
+                default: {
+                    // instructive change start
+                    this.backgroundImage(undefined)
+                    // instructive change end
+                }
+            }
+        }
+        if (flagArray[170] != 0) {
+            switch (flagArray[170]) {
+                case 1:
+                case 3: {
+                    this.backgroundImage((modifier._backgroundImage_2_0value as ResourceStr | PixelMap | undefined), (modifier._backgroundImage_2_1value as ImageRepeat));
+                    break;
+                }
+                default: {
+                    // instructive change start
+                    this.backgroundImage(undefined)
+                    // instructive change end
+                }
+            }
+        }
+        if (flagArray[171] != 0) {
+            switch (flagArray[171]) {
+                case 1:
+                case 3: {
+                    this.backgroundBlurStyle((modifier._backgroundBlurStyle_0_0value as BlurStyle | undefined), (modifier._backgroundBlurStyle_0_1value as BackgroundBlurStyleOptions | undefined), (modifier._backgroundBlurStyle_0_2value as SystemAdaptiveOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundBlurStyle(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[172] != 0) {
+            switch (flagArray[172]) {
+                case 1:
+                case 3: {
+                    this.backgroundEffect((modifier._backgroundEffect_0_0value as BackgroundEffectOptions | undefined), (modifier._backgroundEffect_0_1value as SystemAdaptiveOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.backgroundEffect(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[173] != 0) {
+            switch (flagArray[173]) {
+                case 1:
+                case 3: {
+                    this.foregroundBlurStyle((modifier._foregroundBlurStyle_0_0value as BlurStyle | undefined), (modifier._foregroundBlurStyle_0_1value as ForegroundBlurStyleOptions | undefined), (modifier._foregroundBlurStyle_0_2value as SystemAdaptiveOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.foregroundBlurStyle(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[174] != 0) {
+            switch (flagArray[174]) {
+                case 1:
+                case 3: {
+                    this.borderRadius((modifier._borderRadius_0_0value as Length | BorderRadiuses | LocalizedBorderRadiuses | undefined), (modifier._borderRadius_0_1value as RenderStrategy | undefined));
+                    break;
+                }
+                default: {
+                    this.borderRadius(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[175] != 0) {
+            switch (flagArray[175]) {
+                case 1:
+                case 3: {
+                    this.onClick((modifier._onClick_1_0value as ((event: ClickEvent) => void) | undefined), (modifier._onClick_1_1value as double | undefined));
+                    break;
+                }
+                default: {
+                    this.onClick(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[176] != 0) {
+            switch (flagArray[176]) {
+                case 1:
+                case 3: {
+                    this.focusScopeId((modifier._focusScopeId_0_0value as string | undefined), (modifier._focusScopeId_0_1value as boolean | undefined), (modifier._focusScopeId_0_2value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.focusScopeId(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[177] != 0) {
+            switch (flagArray[177]) {
+                case 1:
+                case 3: {
+                    this.focusScopePriority((modifier._focusScopePriority_0_0value as string | undefined), (modifier._focusScopePriority_0_1value as FocusPriority | undefined));
+                    break;
+                }
+                default: {
+                    this.focusScopePriority(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[178] != 0) {
+            switch (flagArray[178]) {
+                case 1:
+                case 3: {
+                    this.transition((modifier._transition_1_0value as TransitionEffect | undefined), (modifier._transition_1_1value as TransitionFinishCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.transition(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[179] != 0) {
+            switch (flagArray[179]) {
+                case 1:
+                case 3: {
+                    this.gesture((modifier._gesture_0_0value as GestureType), (modifier._gesture_0_1value as GestureMask | undefined));
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+    }
+    mergeModifier9(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[180] != 0) {
+            switch (flagArray[180]) {
+                case 1:
+                case 3: {
+                    this.priorityGesture((modifier._priorityGesture_0_0value as GestureType), (modifier._priorityGesture_0_1value as GestureMask | undefined));
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+        if (flagArray[181] != 0) {
+            switch (flagArray[181]) {
+                case 1:
+                case 3: {
+                    this.parallelGesture((modifier._parallelGesture_0_0value as GestureType), (modifier._parallelGesture_0_1value as GestureMask | undefined));
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+        if (flagArray[182] != 0) {
+            switch (flagArray[182]) {
+                case 1:
+                case 3: {
+                    this.blur((modifier._blur_0_0value as double | undefined), (modifier._blur_0_1value as BlurOptions | undefined), (modifier._blur_0_2value as SystemAdaptiveOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.blur(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[183] != 0) {
+            switch (flagArray[183]) {
+                case 1:
+                case 3: {
+                    this.linearGradientBlur((modifier._linearGradientBlur_0_0value as double | undefined), (modifier._linearGradientBlur_0_1value as LinearGradientBlurOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.linearGradientBlur(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[184] != 0) {
+            switch (flagArray[184]) {
+                case 1:
+                case 3: {
+                    this.systemBarEffect();
+                    break;
+                }
+                default: {
+                    this.systemBarEffect();
+                }
+            }
+        }
+        if (flagArray[185] != 0) {
+            switch (flagArray[185]) {
+                case 1:
+                case 3: {
+                    this.useEffect((modifier._useEffect_1_0value as boolean | undefined), (modifier._useEffect_1_1value as EffectType | undefined));
+                    break;
+                }
+                default: {
+                    this.useEffect(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[186] != 0) {
+            switch (flagArray[186]) {
+                case 1:
+                case 3: {
+                    this.backdropBlur((modifier._backdropBlur_0_0value as double | undefined), (modifier._backdropBlur_0_1value as BlurOptions | undefined), (modifier._backdropBlur_0_2value as SystemAdaptiveOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.backdropBlur(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[187] != 0) {
+            switch (flagArray[187]) {
+                case 1:
+                case 3: {
+                    this.sharedTransition((modifier._sharedTransition_0_0value as string | undefined), (modifier._sharedTransition_0_1value as sharedTransitionOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.sharedTransition(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[188] != 0) {
+            switch (flagArray[188]) {
+                case 1:
+                case 3: {
+                    this.chainMode((modifier._chainMode_0_0value as Axis | undefined), (modifier._chainMode_0_1value as ChainStyle | undefined));
+                    break;
+                }
+                default: {
+                    this.chainMode(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[189] != 0) {
+            switch (flagArray[189]) {
+                case 1:
+                case 3: {
+                    this.onDrop((modifier._onDrop_1_0value as OnDragEventCallback | undefined), (modifier._onDrop_1_1value as DropOptions));
+                    break;
+                }
+                default: {
+                    // instructive change start
+                    this.onDrop(modifier._onDrop_1_0value as OnDragEventCallback | undefined);
+                    // instructive change end
+                }
+            }
+        }
+        if (flagArray[190] != 0) {
+            switch (flagArray[190]) {
+                case 1:
+                case 3: {
+                    this.onDragSpringLoading((modifier._onDragSpringLoading_0_0value as arkui_component_common_Callback<SpringLoadingContext, void> | null | undefined), (modifier._onDragSpringLoading_0_1value as DragSpringLoadingConfiguration | undefined));
+                    break;
+                }
+                default: {
+                    this.onDragSpringLoading(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[191] != 0) {
+            switch (flagArray[191]) {
+                case 1:
+                case 3: {
+                    this.dragPreview((modifier._dragPreview_0_0value as CustomBuilder | DragItemInfo | string | undefined), (modifier._dragPreview_0_1value as PreviewConfiguration | undefined));
+                    break;
+                }
+                default: {
+                    this.dragPreview(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[192] != 0) {
+            switch (flagArray[192]) {
+                case 1:
+                case 3: {
+                    this.dragPreviewOptions((modifier._dragPreviewOptions_0_0value as DragPreviewOptions | undefined), (modifier._dragPreviewOptions_0_1value as DragInteractionOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.dragPreviewOptions(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[193] != 0) {
+            switch (flagArray[193]) {
+                case 1:
+                case 3: {
+                    this.overlay((modifier._overlay_0_0value as string | CustomBuilder | ComponentContent<Object> | undefined), (modifier._overlay_0_1value as OverlayOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.overlay(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[194] != 0) {
+            switch (flagArray[194]) {
+                case 1:
+                case 3: {
+                    this.blendMode((modifier._blendMode_0_0value as BlendMode | undefined), (modifier._blendMode_0_1value as BlendApplyType | undefined));
+                    break;
+                }
+                default: {
+                    this.blendMode(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[195] != 0) {
+            switch (flagArray[195]) {
+                case 1:
+                case 3: {
+                    this.advancedBlendMode((modifier._advancedBlendMode_0_0value as BlendMode | Blender | undefined), (modifier._advancedBlendMode_0_1value as BlendApplyType | undefined));
+                    break;
+                }
+                default: {
+                    this.advancedBlendMode(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[196] != 0) {
+            switch (flagArray[196]) {
+                case 1:
+                case 3: {
+                    this.geometryTransition((modifier._geometryTransition_0_0value as string | undefined), (modifier._geometryTransition_0_1value as GeometryTransitionOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.geometryTransition(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[197] != 0) {
+            switch (flagArray[197]) {
+                case 1:
+                case 3: {
+                    this.bindTips((modifier._bindTips_0_0value as TipsMessageType | undefined), (modifier._bindTips_0_1value as TipsOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindTips(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[198] != 0) {
+            switch (flagArray[198]) {
+                case 1:
+                case 3: {
+                    this.bindPopup((modifier._bindPopup_0_0value as boolean | undefined), (modifier._bindPopup_0_1value as PopupOptions | CustomPopupOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindPopup(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[199] != 0) {
+            switch (flagArray[199]) {
+                case 1:
+                case 3: {
+                    this.bindMenu((modifier._bindMenu_0_0value as Array<MenuElement> | CustomBuilder | undefined), (modifier._bindMenu_0_1value as MenuOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindMenu(undefined, undefined);
+                }
+            }
+        }
+    }
+    mergeModifier10(modifier: CommonMethodModifier, flagArray: Uint8Array): void {
+        if (flagArray[200] != 0) {
+            switch (flagArray[200]) {
+                case 1:
+                case 3: {
+                    this.bindMenu((modifier._bindMenu_1_0value as boolean | Bindable<boolean> | undefined), (modifier._bindMenu_1_1value as Array<MenuElement> | CustomBuilder | undefined), (modifier._bindMenu_1_2value as MenuOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindMenu(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[201] != 0) {
+            switch (flagArray[201]) {
+                case 1:
+                case 3: {
+                    this.bindContextMenu((modifier._bindContextMenu_0_0value as CustomBuilder | undefined), (modifier._bindContextMenu_0_1value as ResponseType | undefined), (modifier._bindContextMenu_0_2value as ContextMenuOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindContextMenu(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[202] != 0) {
+            switch (flagArray[202]) {
+                case 1:
+                case 3: {
+                    this.bindContextMenuWithResponse((modifier._bindContextMenuWithResponse_0_0value as CustomBuilderT<ResponseType> | undefined), (modifier._bindContextMenuWithResponse_0_1value as ContextMenuOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindContextMenuWithResponse(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[203] != 0) {
+            switch (flagArray[203]) {
+                case 1:
+                case 3: {
+                    this.bindContextMenu((modifier._bindContextMenu_1_0value as boolean | Bindable<boolean> | undefined), (modifier._bindContextMenu_1_1value as CustomBuilder | undefined), (modifier._bindContextMenu_1_2value as ContextMenuOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindContextMenu(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[204] != 0) {
+            switch (flagArray[204]) {
+                case 1:
+                case 3: {
+                    this.bindContentCover((modifier._bindContentCover_0_0value as boolean | Bindable<boolean> | undefined), (modifier._bindContentCover_0_1value as CustomBuilder | undefined), (modifier._bindContentCover_0_2value as ModalTransition | undefined));
+                    break;
+                }
+                default: {
+                    this.bindContentCover(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[205] != 0) {
+            switch (flagArray[205]) {
+                case 1:
+                case 3: {
+                    this.bindContentCover((modifier._bindContentCover_1_0value as boolean | Bindable<boolean> | undefined), (modifier._bindContentCover_1_1value as CustomBuilder | undefined), (modifier._bindContentCover_1_2value as ContentCoverOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindContentCover(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[206] != 0) {
+            switch (flagArray[206]) {
+                case 1:
+                case 3: {
+                    this.bindSheet((modifier._bindSheet_0_0value as boolean | Bindable<boolean> | undefined), (modifier._bindSheet_0_1value as CustomBuilder | undefined), (modifier._bindSheet_0_2value as SheetOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.bindSheet(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[207] != 0) {
+            switch (flagArray[207]) {
+                case 1:
+                case 3: {
+                    this.onVisibleAreaChange((modifier._onVisibleAreaChange_0_0value as Array<double> | undefined), (modifier._onVisibleAreaChange_0_1value as VisibleAreaChangeCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onVisibleAreaChange(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[208] != 0) {
+            switch (flagArray[208]) {
+                case 1:
+                case 3: {
+                    this.onVisibleAreaApproximateChange((modifier._onVisibleAreaApproximateChange_0_0value as VisibleAreaEventOptions | undefined), (modifier._onVisibleAreaApproximateChange_0_1value as VisibleAreaChangeCallback | undefined));
+                    break;
+                }
+                default: {
+                    this.onVisibleAreaApproximateChange(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[209] != 0) {
+            switch (flagArray[209]) {
+                case 1:
+                case 3: {
+                    this.keyboardShortcut((modifier._keyboardShortcut_0_0value as string | FunctionKey | undefined), (modifier._keyboardShortcut_0_1value as Array<ModifierKey> | undefined), (modifier._keyboardShortcut_0_2value as (() => void) | undefined));
+                    break;
+                }
+                default: {
+                    this.keyboardShortcut(undefined, undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[210] != 0) {
+            switch (flagArray[210]) {
+                case 1:
+                case 3: {
+                    this.accessibilityGroup((modifier._accessibilityGroup_0_0value as boolean | undefined), (modifier._accessibilityGroup_0_1value as AccessibilityOptions | undefined));
+                    break;
+                }
+                default: {
+                    this.accessibilityGroup(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[211] != 0) {
+            switch (flagArray[211]) {
+                case 1:
+                case 3: {
+                    this.onGestureRecognizerJudgeBegin((modifier._onGestureRecognizerJudgeBegin_1_0value as GestureRecognizerJudgeBeginCallback | undefined), (modifier._onGestureRecognizerJudgeBegin_1_1value as boolean | undefined));
+                    break;
+                }
+                default: {
+                    this.onGestureRecognizerJudgeBegin(undefined, undefined);
+                }
+            }
+        }
+        if (flagArray[212] != 0)
+        {
+            switch (flagArray[212]) {
+                case 1:
+                case 3: {
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+        if (flagArray[213] != 0) {
+            switch (flagArray[213]) {
+                case 1:
+                case 3: {
+                    this.onAreaChange((modifier._onAreaChange_1_0value as AreaChangeCallback), (modifier._onAreaChange_1_1value as AreaChangeOptions | undefined));
+                    break;
+                }
+                default: {
+                }
+            }
+        }
+    }
+    width(value: Length | LayoutPolicy | undefined): this {
+        if (((this._flagArray[0]) == (0)) || (true)) {
+            this._flagArray[0] = 1
+            this._width_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[0] = 3
+        }
+        return this
+    }
+    height(value: Length | LayoutPolicy | undefined): this {
+        if (((this._flagArray[1]) == (0)) || (true)) {
+            this._flagArray[1] = 1
+            this._height_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[1] = 3
+        }
+        return this
+    }
+    drawModifier(value: DrawModifier | undefined): this {
+        if (((this._flagArray[2]) == (0)) || (true)) {
+            this._flagArray[2] = 1
+            this._drawModifier_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[2] = 3
+        }
+        return this
+    }
+    responseRegion(value: Array<Rectangle> | Rectangle | undefined): this {
+        if (((this._flagArray[3]) == (0)) || (true)) {
+            this._flagArray[3] = 1
+            this._responseRegion_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[3] = 3
+        }
+        return this
+    }
+    mouseResponseRegion(value: Array<Rectangle> | Rectangle | undefined): this {
+        if (((this._flagArray[4]) == (0)) || (true)) {
+            this._flagArray[4] = 1
+            this._mouseResponseRegion_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[4] = 3
+        }
+        return this
+    }
+    responseRegionList(value: Array<ResponseRegion> | undefined): this {
+        if (((this._flagArray[5]) == (0)) || (true)) {
+            this._flagArray[5] = 1
+            this._responseRegionList_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[5] = 3
+        }
+        return this
+    }
+    size(value: SizeOptions | undefined): this {
+        if (((this._flagArray[6]) == (0)) || (true)) {
+            this._flagArray[6] = 1
+            this._size_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[6] = 3
+        }
+        return this
+    }
+    constraintSize(value: ConstraintSizeOptions | undefined): this {
+        if (((this._flagArray[7]) == (0)) || (true)) {
+            this._flagArray[7] = 1
+            this._constraintSize_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[7] = 3
+        }
+        return this
+    }
+    hitTestBehavior(value: HitTestMode | undefined): this {
+        if (((this._flagArray[8]) == (0)) || (true)) {
+            this._flagArray[8] = 1
+            this._hitTestBehavior_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[8] = 3
+        }
+        return this
+    }
+    onChildTouchTest(value: ((value: Array<TouchTestInfo>) => TouchResult) | undefined): this {
+        if (((this._flagArray[9]) == (0)) || (true)) {
+            this._flagArray[9] = 1
+            this._onChildTouchTest_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[9] = 3
+        }
+        return this
+    }
+    layoutWeight(value: double | string | undefined): this {
+        if (((this._flagArray[10]) == (0)) || ((this._layoutWeight_0_0value) !== (value))) {
+            this._flagArray[10] = 1
+            this._layoutWeight_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[10] = 3
+        }
+        return this
+    }
+    chainWeight(value: ChainWeightOptions | undefined): this {
+        if (((this._flagArray[11]) == (0)) || (true)) {
+            this._flagArray[11] = 1
+            this._chainWeight_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[11] = 3
+        }
+        return this
+    }
+    padding(value: Padding | Length | LocalizedPadding | undefined): this {
+        if (((this._flagArray[12]) == (0)) || (true)) {
+            this._flagArray[12] = 1
+            this._padding_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[12] = 3
+        }
+        return this
+    }
+    safeAreaPadding(value: Padding | arkui_Graphics_LengthMetrics | LocalizedPadding | undefined): this {
+        if (((this._flagArray[13]) == (0)) || (true)) {
+            this._flagArray[13] = 1
+            this._safeAreaPadding_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[13] = 3
+        }
+        return this
+    }
+    margin(value: Margin | Length | LocalizedMargin | undefined): this {
+        if (((this._flagArray[14]) == (0)) || (true)) {
+            this._flagArray[14] = 1
+            this._margin_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[14] = 3
+        }
+        return this
+    }
+    backgroundColor(value: ResourceColor | arkui_component_units_ColorMetrics | undefined): this {
+        if (((this._flagArray[15]) == (0)) || (true)) {
+            this._flagArray[15] = 1
+            this._backgroundColor_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[15] = 3
+        }
+        return this
+    }
+    pixelRound(value: PixelRoundPolicy | undefined): this {
+        if (((this._flagArray[16]) == (0)) || (true)) {
+            this._flagArray[16] = 1
+            this._pixelRound_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[16] = 3
+        }
+        return this
+    }
+    backgroundImage(value: ResourceStr | PixelMap | undefined): this {
+        if (((this._flagArray[17]) == (0)) || (true)) {
+            this._flagArray[17] = 1
+            this._backgroundImage_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[17] = 3
+        }
+        return this
+    }
+    backgroundImageSize(value: SizeOptions | ImageSize | undefined): this {
+        if (((this._flagArray[18]) == (0)) || (true)) {
+            this._flagArray[18] = 1
+            this._backgroundImageSize_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[18] = 3
+        }
+        return this
+    }
+    backgroundImagePosition(value: Position | Alignment | undefined): this {
+        if (((this._flagArray[19]) == (0)) || (true)) {
+            this._flagArray[19] = 1
+            this._backgroundImagePosition_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[19] = 3
+        }
+        return this
+    }
+    backgroundImageResizable(value: ResizableOptions | undefined): this {
+        if (((this._flagArray[20]) == (0)) || (true)) {
+            this._flagArray[20] = 1
+            this._backgroundImageResizable_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[20] = 3
+        }
+        return this
+    }
+    foregroundEffect(value: ForegroundEffectOptions | undefined): this {
+        if (((this._flagArray[21]) == (0)) || (true)) {
+            this._flagArray[21] = 1
+            this._foregroundEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[21] = 3
+        }
+        return this
+    }
+    visualEffect(value: VisualEffect | undefined): this {
+        if (((this._flagArray[22]) == (0)) || (true)) {
+            this._flagArray[22] = 1
+            this._visualEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[22] = 3
+        }
+        return this
+    }
+    backgroundFilter(value: Filter | undefined): this {
+        if (((this._flagArray[23]) == (0)) || (true)) {
+            this._flagArray[23] = 1
+            this._backgroundFilter_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[23] = 3
+        }
+        return this
+    }
+    foregroundFilter(value: Filter | undefined): this {
+        if (((this._flagArray[24]) == (0)) || (true)) {
+            this._flagArray[24] = 1
+            this._foregroundFilter_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[24] = 3
+        }
+        return this
+    }
+    compositingFilter(value: Filter | undefined): this {
+        if (((this._flagArray[25]) == (0)) || (true)) {
+            this._flagArray[25] = 1
+            this._compositingFilter_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[25] = 3
+        }
+        return this
+    }
+    materialFilter(value: Filter | undefined): this {
+        if (((this._flagArray[26]) == (0)) || (true)) {
+            this._flagArray[26] = 1
+            this._materialFilter_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[26] = 3
+        }
+        return this
+    }
+    opacity(value: double | global_resource_Resource | undefined): this {
+        if (((this._flagArray[27]) == (0)) || (true)) {
+            this._flagArray[27] = 1
+            this._opacity_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[27] = 3
+        }
+        return this
+    }
+    border(value: BorderOptions | undefined): this {
+        if (((this._flagArray[28]) == (0)) || (true)) {
+            this._flagArray[28] = 1
+            this._border_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[28] = 3
+        }
+        return this
+    }
+    borderStyle(value: BorderStyle | EdgeStyles | undefined): this {
+        if (((this._flagArray[29]) == (0)) || (true)) {
+            this._flagArray[29] = 1
+            this._borderStyle_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[29] = 3
+        }
+        return this
+    }
+    borderWidth(value: Length | EdgeWidths | LocalizedEdgeWidths | undefined): this {
+        if (((this._flagArray[30]) == (0)) || (true)) {
+            this._flagArray[30] = 1
+            this._borderWidth_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[30] = 3
+        }
+        return this
+    }
+    borderColor(value: ResourceColor | EdgeColors | LocalizedEdgeColors | undefined): this {
+        if (((this._flagArray[31]) == (0)) || (true)) {
+            this._flagArray[31] = 1
+            this._borderColor_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[31] = 3
+        }
+        return this
+    }
+    borderImage(value: BorderImageOption | undefined): this {
+        if (((this._flagArray[32]) == (0)) || (true)) {
+            this._flagArray[32] = 1
+            this._borderImage_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[32] = 3
+        }
+        return this
+    }
+    outline(value: OutlineOptions | undefined): this {
+        if (((this._flagArray[33]) == (0)) || (true)) {
+            this._flagArray[33] = 1
+            this._outline_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[33] = 3
+        }
+        return this
+    }
+    outlineStyle(value: OutlineStyle | EdgeOutlineStyles | undefined): this {
+        if (((this._flagArray[34]) == (0)) || (true)) {
+            this._flagArray[34] = 1
+            this._outlineStyle_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[34] = 3
+        }
+        return this
+    }
+    outlineWidth(value: Dimension | EdgeOutlineWidths | undefined): this {
+        if (((this._flagArray[35]) == (0)) || (true)) {
+            this._flagArray[35] = 1
+            this._outlineWidth_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[35] = 3
+        }
+        return this
+    }
+    outlineColor(value: ResourceColor | EdgeColors | LocalizedEdgeColors | undefined): this {
+        if (((this._flagArray[36]) == (0)) || (true)) {
+            this._flagArray[36] = 1
+            this._outlineColor_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[36] = 3
+        }
+        return this
+    }
+    outlineRadius(value: Dimension | OutlineRadiuses | undefined): this {
+        if (((this._flagArray[37]) == (0)) || (true)) {
+            this._flagArray[37] = 1
+            this._outlineRadius_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[37] = 3
+        }
+        return this
+    }
+    foregroundColor(value: ResourceColor | ColoringStrategy | undefined): this {
+        if (((this._flagArray[38]) == (0)) || (true)) {
+            this._flagArray[38] = 1
+            this._foregroundColor_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[38] = 3
+        }
+        return this
+    }
+    onClick(value: ((event: ClickEvent) => void) | undefined): this {
+        if (((this._flagArray[39]) == (0)) || (true)) {
+            this._flagArray[39] = 1
+            this._onClick_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[39] = 3
+        }
+        return this
+    }
+    onHover(value: ((isHover: boolean,event: HoverEvent) => void) | undefined): this {
+        if (((this._flagArray[40]) == (0)) || (true)) {
+            this._flagArray[40] = 1
+            this._onHover_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[40] = 3
+        }
+        return this
+    }
+    onHoverMove(value: arkui_component_common_Callback<HoverEvent, void> | undefined): this {
+        if (((this._flagArray[41]) == (0)) || (true)) {
+            this._flagArray[41] = 1
+            this._onHoverMove_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[41] = 3
+        }
+        return this
+    }
+    onAccessibilityHover(value: AccessibilityCallback | undefined): this {
+        if (((this._flagArray[42]) == (0)) || (true)) {
+            this._flagArray[42] = 1
+            this._onAccessibilityHover_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[42] = 3
+        }
+        return this
+    }
+    onAccessibilityHoverTransparent(value: AccessibilityTransparentCallback | undefined): this {
+        if (((this._flagArray[43]) == (0)) || (true)) {
+            this._flagArray[43] = 1
+            this._onAccessibilityHoverTransparent_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[43] = 3
+        }
+        return this
+    }
+    hoverEffect(value: HoverEffect | undefined): this {
+        if (((this._flagArray[44]) == (0)) || (true)) {
+            this._flagArray[44] = 1
+            this._hoverEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[44] = 3
+        }
+        return this
+    }
+    onMouse(value: ((event: MouseEvent) => void) | undefined): this {
+        if (((this._flagArray[45]) == (0)) || (true)) {
+            this._flagArray[45] = 1
+            this._onMouse_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[45] = 3
+        }
+        return this
+    }
+    onTouch(value: ((event: TouchEvent) => void) | undefined): this {
+        if (((this._flagArray[46]) == (0)) || (true)) {
+            this._flagArray[46] = 1
+            this._onTouch_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[46] = 3
+        }
+        return this
+    }
+    onKeyEvent(value: arkui_component_common_Callback<KeyEvent, boolean> | undefined): this {
+        if (((this._flagArray[47]) == (0)) || (true)) {
+            this._flagArray[47] = 1
+            this._onKeyEvent_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[47] = 3
+        }
+        return this
+    }
+    onDigitalCrown(value: arkui_component_common_Callback<CrownEvent, void> | undefined): this {
+        if (((this._flagArray[48]) == (0)) || (true)) {
+            this._flagArray[48] = 1
+            this._onDigitalCrown_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[48] = 3
+        }
+        return this
+    }
+    onKeyPreIme(value: arkui_component_common_Callback<KeyEvent, boolean> | undefined): this {
+        if (((this._flagArray[49]) == (0)) || (true)) {
+            this._flagArray[49] = 1
+            this._onKeyPreIme_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[49] = 3
+        }
+        return this
+    }
+    onKeyEventDispatch(value: arkui_component_common_Callback<KeyEvent, boolean> | undefined): this {
+        if (((this._flagArray[50]) == (0)) || (true)) {
+            this._flagArray[50] = 1
+            this._onKeyEventDispatch_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[50] = 3
+        }
+        return this
+    }
+    onFocusAxisEvent(value: arkui_component_common_Callback<FocusAxisEvent, void> | undefined): this {
+        if (((this._flagArray[51]) == (0)) || (true)) {
+            this._flagArray[51] = 1
+            this._onFocusAxisEvent_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[51] = 3
+        }
+        return this
+    }
+    onAxisEvent(value: arkui_component_common_Callback<AxisEvent, void> | undefined): this {
+        if (((this._flagArray[52]) == (0)) || (true)) {
+            this._flagArray[52] = 1
+            this._onAxisEvent_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[52] = 3
+        }
+        return this
+    }
+    focusable(value: boolean | undefined): this {
+        if (((this._flagArray[53]) == (0)) || ((this._focusable_0_0value) !== (value))) {
+            this._flagArray[53] = 1
+            this._focusable_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[53] = 3
+        }
+        return this
+    }
+    nextFocus(value: FocusMovement | undefined): this {
+        if (((this._flagArray[54]) == (0)) || (true)) {
+            this._flagArray[54] = 1
+            this._nextFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[54] = 3
+        }
+        return this
+    }
+    tabStop(value: boolean | undefined): this {
+        if (((this._flagArray[55]) == (0)) || ((this._tabStop_0_0value) !== (value))) {
+            this._flagArray[55] = 1
+            this._tabStop_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[55] = 3
+        }
+        return this
+    }
+    onFocus(value: (() => void) | undefined): this {
+        if (((this._flagArray[56]) == (0)) || (true)) {
+            this._flagArray[56] = 1
+            this._onFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[56] = 3
+        }
+        return this
+    }
+    onBlur(value: (() => void) | undefined): this {
+        if (((this._flagArray[57]) == (0)) || (true)) {
+            this._flagArray[57] = 1
+            this._onBlur_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[57] = 3
+        }
+        return this
+    }
+    tabIndex(value: int32 | undefined): this {
+        if (((this._flagArray[58]) == (0)) || ((this._tabIndex_0_0value) !== (value))) {
+            this._flagArray[58] = 1
+            this._tabIndex_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[58] = 3
+        }
+        return this
+    }
+    defaultFocus(value: boolean | undefined): this {
+        if (((this._flagArray[59]) == (0)) || ((this._defaultFocus_0_0value) !== (value))) {
+            this._flagArray[59] = 1
+            this._defaultFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[59] = 3
+        }
+        return this
+    }
+    groupDefaultFocus(value: boolean | undefined): this {
+        if (((this._flagArray[60]) == (0)) || ((this._groupDefaultFocus_0_0value) !== (value))) {
+            this._flagArray[60] = 1
+            this._groupDefaultFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[60] = 3
+        }
+        return this
+    }
+    focusOnTouch(value: boolean | undefined): this {
+        if (((this._flagArray[61]) == (0)) || ((this._focusOnTouch_0_0value) !== (value))) {
+            this._flagArray[61] = 1
+            this._focusOnTouch_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[61] = 3
+        }
+        return this
+    }
+    focusBox(value: FocusBoxStyle | undefined): this {
+        if (((this._flagArray[62]) == (0)) || (true)) {
+            this._flagArray[62] = 1
+            this._focusBox_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[62] = 3
+        }
+        return this
+    }
+    animation(value: AnimateParam | undefined): this {
+        if (((this._flagArray[63]) == (0)) || (true)) {
+            this._flagArray[63] = 1
+            this._animation_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[63] = 3
+        }
+        return this
+    }
+    transition(value: TransitionEffect | undefined): this {
+        if (((this._flagArray[64]) == (0)) || (true)) {
+            this._flagArray[64] = 1
+            this._transition_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[64] = 3
+        }
+        return this
+    }
+    motionBlur(value: MotionBlurOptions | undefined): this {
+        if (((this._flagArray[65]) == (0)) || (true)) {
+            this._flagArray[65] = 1
+            this._motionBlur_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[65] = 3
+        }
+        return this
+    }
+    brightness(value: double | undefined): this {
+        if (((this._flagArray[66]) == (0)) || ((this._brightness_0_0value) !== (value))) {
+            this._flagArray[66] = 1
+            this._brightness_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[66] = 3
+        }
+        return this
+    }
+    contrast(value: double | undefined): this {
+        if (((this._flagArray[67]) == (0)) || ((this._contrast_0_0value) !== (value))) {
+            this._flagArray[67] = 1
+            this._contrast_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[67] = 3
+        }
+        return this
+    }
+    grayscale(value: double | undefined): this {
+        if (((this._flagArray[68]) == (0)) || ((this._grayscale_0_0value) !== (value))) {
+            this._flagArray[68] = 1
+            this._grayscale_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[68] = 3
+        }
+        return this
+    }
+    colorBlend(value: arkui_component_enums_Color | string | global_resource_Resource | undefined): this {
+        if (((this._flagArray[69]) == (0)) || (true)) {
+            this._flagArray[69] = 1
+            this._colorBlend_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[69] = 3
+        }
+        return this
+    }
+    saturate(value: double | undefined): this {
+        if (((this._flagArray[70]) == (0)) || ((this._saturate_0_0value) !== (value))) {
+            this._flagArray[70] = 1
+            this._saturate_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[70] = 3
+        }
+        return this
+    }
+    sepia(value: double | undefined): this {
+        if (((this._flagArray[71]) == (0)) || ((this._sepia_0_0value) !== (value))) {
+            this._flagArray[71] = 1
+            this._sepia_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[71] = 3
+        }
+        return this
+    }
+    invert(value: double | InvertOptions | undefined): this {
+        if (((this._flagArray[72]) == (0)) || (true)) {
+            this._flagArray[72] = 1
+            this._invert_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[72] = 3
+        }
+        return this
+    }
+    hueRotate(value: double | string | undefined): this {
+        if (((this._flagArray[73]) == (0)) || ((this._hueRotate_0_0value) !== (value))) {
+            this._flagArray[73] = 1
+            this._hueRotate_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[73] = 3
+        }
+        return this
+    }
+    useShadowBatching(value: boolean | undefined): this {
+        if (((this._flagArray[74]) == (0)) || ((this._useShadowBatching_0_0value) !== (value))) {
+            this._flagArray[74] = 1
+            this._useShadowBatching_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[74] = 3
+        }
+        return this
+    }
+    useEffect(value: boolean | undefined): this {
+        if (((this._flagArray[75]) == (0)) || ((this._useEffect_0_0value) !== (value))) {
+            this._flagArray[75] = 1
+            this._useEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[75] = 3
+        }
+        return this
+    }
+    useUnionEffect(value: boolean | undefined): this {
+        if (((this._flagArray[76]) == (0)) || ((this._useUnionEffect_0_0value) !== (value))) {
+            this._flagArray[76] = 1
+            this._useUnionEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[76] = 3
+        }
+        return this
+    }
+    renderGroup(value: boolean | undefined): this {
+        if (((this._flagArray[77]) == (0)) || ((this._renderGroup_0_0value) !== (value))) {
+            this._flagArray[77] = 1
+            this._renderGroup_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[77] = 3
+        }
+        return this
+    }
+    excludeFromRenderGroup(value: boolean | undefined): this {
+        if (((this._flagArray[78]) == (0)) || ((this._excludeFromRenderGroup_0_0value) !== (value))) {
+            this._flagArray[78] = 1
+            this._excludeFromRenderGroup_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[78] = 3
+        }
+        return this
+    }
+    freeze(value: boolean | undefined): this {
+        if (((this._flagArray[79]) == (0)) || ((this._freeze_0_0value) !== (value))) {
+            this._flagArray[79] = 1
+            this._freeze_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[79] = 3
+        }
+        return this
+    }
+    translate(value: TranslateOptions | undefined): this {
+        if (((this._flagArray[80]) == (0)) || (true)) {
+            this._flagArray[80] = 1
+            this._translate_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[80] = 3
+        }
+        return this
+    }
+    scale(value: ScaleOptions | undefined): this {
+        if (((this._flagArray[81]) == (0)) || (true)) {
+            this._flagArray[81] = 1
+            this._scale_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[81] = 3
+        }
+        return this
+    }
+    rotate(value: RotateOptions | RotateAngleOptions | undefined): this {
+        if (((this._flagArray[82]) == (0)) || (true)) {
+            this._flagArray[82] = 1
+            this._rotate_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[82] = 3
+        }
+        return this
+    }
+    transform(value: Matrix4Transit | undefined): this {
+        if (((this._flagArray[83]) == (0)) || (true)) {
+            this._flagArray[83] = 1
+            this._transform_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[83] = 3
+        }
+        return this
+    }
+    transform3D(value: Matrix4Transit | undefined): this {
+        if (((this._flagArray[84]) == (0)) || (true)) {
+            this._flagArray[84] = 1
+            this._transform3D_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[84] = 3
+        }
+        return this
+    }
+    onAppear(value: (() => void) | undefined): this {
+        if (((this._flagArray[85]) == (0)) || (true)) {
+            this._flagArray[85] = 1
+            this._onAppear_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[85] = 3
+        }
+        return this
+    }
+    onDisAppear(value: (() => void) | undefined): this {
+        if (((this._flagArray[86]) == (0)) || (true)) {
+            this._flagArray[86] = 1
+            this._onDisAppear_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[86] = 3
+        }
+        return this
+    }
+    onAttach(value: VoidCallback | undefined): this {
+        if (((this._flagArray[87]) == (0)) || (true)) {
+            this._flagArray[87] = 1
+            this._onAttach_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[87] = 3
+        }
+        return this
+    }
+    onDetach(value: VoidCallback | undefined): this {
+        if (((this._flagArray[88]) == (0)) || (true)) {
+            this._flagArray[88] = 1
+            this._onDetach_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[88] = 3
+        }
+        return this
+    }
+    onAreaChange(value: ((oldValue: Area,newValue: Area) => void) | undefined): this {
+        if (((this._flagArray[89]) == (0)) || (true)) {
+            this._flagArray[89] = 1
+            this._onAreaChange_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[89] = 3
+        }
+        return this
+    }
+    visibility(value: Visibility | undefined): this {
+        if (((this._flagArray[90]) == (0)) || (true)) {
+            this._flagArray[90] = 1
+            this._visibility_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[90] = 3
+        }
+        return this
+    }
+    flexGrow(value: double | undefined): this {
+        if (((this._flagArray[91]) == (0)) || ((this._flexGrow_0_0value) !== (value))) {
+            this._flagArray[91] = 1
+            this._flexGrow_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[91] = 3
+        }
+        return this
+    }
+    flexShrink(value: double | undefined): this {
+        if (((this._flagArray[92]) == (0)) || ((this._flexShrink_0_0value) !== (value))) {
+            this._flagArray[92] = 1
+            this._flexShrink_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[92] = 3
+        }
+        return this
+    }
+    flexBasis(value: double | string | undefined): this {
+        if (((this._flagArray[93]) == (0)) || ((this._flexBasis_0_0value) !== (value))) {
+            this._flagArray[93] = 1
+            this._flexBasis_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[93] = 3
+        }
+        return this
+    }
+    alignSelf(value: ItemAlign | undefined): this {
+        if (((this._flagArray[94]) == (0)) || (true)) {
+            this._flagArray[94] = 1
+            this._alignSelf_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[94] = 3
+        }
+        return this
+    }
+    layoutGravity(value: LocalizedAlignment | undefined): this {
+        if (((this._flagArray[95]) == (0)) || (true)) {
+            this._flagArray[95] = 1
+            this._layoutGravity_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[95] = 3
+        }
+        return this
+    }
+    displayPriority(value: double | undefined): this {
+        if (((this._flagArray[96]) == (0)) || ((this._displayPriority_0_0value) !== (value))) {
+            this._flagArray[96] = 1
+            this._displayPriority_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[96] = 3
+        }
+        return this
+    }
+    zIndex(value: int32 | undefined): this {
+        if (((this._flagArray[97]) == (0)) || ((this._zIndex_0_0value) !== (value))) {
+            this._flagArray[97] = 1
+            this._zIndex_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[97] = 3
+        }
+        return this
+    }
+    direction(value: Direction | undefined): this {
+        if (((this._flagArray[98]) == (0)) || (true)) {
+            this._flagArray[98] = 1
+            this._direction_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[98] = 3
+        }
+        return this
+    }
+    align(value: Alignment | LocalizedAlignment | undefined): this {
+        if (((this._flagArray[99]) == (0)) || (true)) {
+            this._flagArray[99] = 1
+            this._align_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[99] = 3
+        }
+        return this
+    }
+    position(value: Position | Edges | LocalizedEdges | undefined): this {
+        if (((this._flagArray[100]) == (0)) || (true)) {
+            this._flagArray[100] = 1
+            this._position_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[100] = 3
+        }
+        return this
+    }
+    markAnchor(value: Position | LocalizedPosition | undefined): this {
+        if (((this._flagArray[101]) == (0)) || (true)) {
+            this._flagArray[101] = 1
+            this._markAnchor_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[101] = 3
+        }
+        return this
+    }
+    offset(value: Position | Edges | LocalizedEdges | undefined): this {
+        if (((this._flagArray[102]) == (0)) || (true)) {
+            this._flagArray[102] = 1
+            this._offset_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[102] = 3
+        }
+        return this
+    }
+    enabled(value: boolean | undefined): this {
+        if (((this._flagArray[103]) == (0)) || ((this._enabled_0_0value) !== (value))) {
+            this._flagArray[103] = 1
+            this._enabled_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[103] = 3
+        }
+        return this
+    }
+    alignRules(value: AlignRuleOption | LocalizedAlignRuleOptions | undefined): this {
+        if (((this._flagArray[104]) == (0)) || (true)) {
+            this._flagArray[104] = 1
+            this._alignRules_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[104] = 3
+        }
+        return this
+    }
+    aspectRatio(value: double | undefined): this {
+        if (((this._flagArray[105]) == (0)) || ((this._aspectRatio_0_0value) !== (value))) {
+            this._flagArray[105] = 1
+            this._aspectRatio_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[105] = 3
+        }
+        return this
+    }
+    clickEffect(value: ClickEffect | null | undefined): this {
+        if (((this._flagArray[106]) == (0)) || (true)) {
+            this._flagArray[106] = 1
+            this._clickEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[106] = 3
+        }
+        return this
+    }
+    enableClickSoundEffect(value: boolean | undefined): this {
+        if (((this._flagArray[107]) == (0)) || ((this._enableClickSoundEffect_0_0value) !== (value))) {
+            this._flagArray[107] = 1
+            this._enableClickSoundEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[107] = 3
+        }
+        return this
+    }
+    onDragStart(value: ((event: DragEvent,extraParams?: string) => CustomBuilder | DragItemInfo) | undefined): this {
+        if (((this._flagArray[108]) == (0)) || (true)) {
+            this._flagArray[108] = 1
+            this._onDragStart_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[108] = 3
+        }
+        return this
+    }
+    onDragEnter(value: ((event: DragEvent,extraParams?: string) => void) | undefined): this {
+        if (((this._flagArray[109]) == (0)) || (true)) {
+            this._flagArray[109] = 1
+            this._onDragEnter_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[109] = 3
+        }
+        return this
+    }
+    onDragMove(value: ((event: DragEvent,extraParams?: string) => void) | undefined): this {
+        if (((this._flagArray[110]) == (0)) || (true)) {
+            this._flagArray[110] = 1
+            this._onDragMove_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[110] = 3
+        }
+        return this
+    }
+    onDragLeave(value: ((event: DragEvent,extraParams?: string) => void) | undefined): this {
+        if (((this._flagArray[111]) == (0)) || (true)) {
+            this._flagArray[111] = 1
+            this._onDragLeave_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[111] = 3
+        }
+        return this
+    }
+    onDrop(value: ((event: DragEvent,extraParams?: string) => void) | undefined): this {
+        if (((this._flagArray[112]) == (0)) || (true)) {
+            this._flagArray[112] = 1
+            this._onDrop_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[112] = 3
+        }
+        return this
+    }
+    onDragEnd(value: ((event: DragEvent,extraParams?: string) => void) | undefined): this {
+        if (((this._flagArray[113]) == (0)) || (true)) {
+            this._flagArray[113] = 1
+            this._onDragEnd_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[113] = 3
+        }
+        return this
+    }
+    allowDrop(value: Array<UniformDataType> | Array<string> | null | undefined): this {
+        if (((this._flagArray[114]) == (0)) || (true)) {
+            this._flagArray[114] = 1
+            this._allowDrop_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[114] = 3
+        }
+        return this
+    }
+    draggable(value: boolean | undefined): this {
+        if (((this._flagArray[115]) == (0)) || ((this._draggable_0_0value) !== (value))) {
+            this._flagArray[115] = 1
+            this._draggable_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[115] = 3
+        }
+        return this
+    }
+    onPreDrag(value: arkui_component_common_Callback<PreDragStatus, void> | undefined): this {
+        if (((this._flagArray[116]) == (0)) || (true)) {
+            this._flagArray[116] = 1
+            this._onPreDrag_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[116] = 3
+        }
+        return this
+    }
+    linearGradient(value: LinearGradientOptions | undefined): this {
+        if (((this._flagArray[117]) == (0)) || (true)) {
+            this._flagArray[117] = 1
+            this._linearGradient_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[117] = 3
+        }
+        return this
+    }
+    sweepGradient(value: SweepGradientOptions | undefined): this {
+        if (((this._flagArray[118]) == (0)) || (true)) {
+            this._flagArray[118] = 1
+            this._sweepGradient_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[118] = 3
+        }
+        return this
+    }
+    radialGradient(value: RadialGradientOptions | undefined): this {
+        if (((this._flagArray[119]) == (0)) || (true)) {
+            this._flagArray[119] = 1
+            this._radialGradient_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[119] = 3
+        }
+        return this
+    }
+    motionPath(value: MotionPathOptions | undefined): this {
+        if (((this._flagArray[120]) == (0)) || (true)) {
+            this._flagArray[120] = 1
+            this._motionPath_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[120] = 3
+        }
+        return this
+    }
+    shadow(value: ShadowOptions | ShadowStyle | undefined): this {
+        if (((this._flagArray[121]) == (0)) || (true)) {
+            this._flagArray[121] = 1
+            this._shadow_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[121] = 3
+        }
+        return this
+    }
+    clip(value: boolean | undefined): this {
+        if (((this._flagArray[122]) == (0)) || ((this._clip_0_0value) !== (value))) {
+            this._flagArray[122] = 1
+            this._clip_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[122] = 3
+        }
+        return this
+    }
+    clipShape(value: CircleShape | EllipseShape | PathShape | RectShape | undefined): this {
+        if (((this._flagArray[123]) == (0)) || (true)) {
+            this._flagArray[123] = 1
+            this._clipShape_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[123] = 3
+        }
+        return this
+    }
+    mask(value: ProgressMask | undefined): this {
+        if (((this._flagArray[124]) == (0)) || (true)) {
+            this._flagArray[124] = 1
+            this._mask_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[124] = 3
+        }
+        return this
+    }
+    maskShape(value: CircleShape | EllipseShape | PathShape | RectShape | undefined): this {
+        if (((this._flagArray[125]) == (0)) || (true)) {
+            this._flagArray[125] = 1
+            this._maskShape_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[125] = 3
+        }
+        return this
+    }
+    key(value: string | undefined): this {
+        if (((this._flagArray[126]) == (0)) || ((this._key_0_0value) !== (value))) {
+            this._flagArray[126] = 1
+            this._key_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[126] = 3
+        }
+        return this
+    }
+    id(value: string | undefined): this {
+        if (((this._flagArray[127]) == (0)) || ((this._id_0_0value) !== (value))) {
+            this._flagArray[127] = 1
+            this._id_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[127] = 3
+        }
+        return this
+    }
+    stateStyles(value: StateStyles | undefined): this {
+        if (((this._flagArray[128]) == (0)) || (true)) {
+            this._flagArray[128] = 1
+            this._stateStyles_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[128] = 3
+        }
+        return this
+    }
+    restoreId(value: int32 | undefined): this {
+        if (((this._flagArray[129]) == (0)) || ((this._restoreId_0_0value) !== (value))) {
+            this._flagArray[129] = 1
+            this._restoreId_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[129] = 3
+        }
+        return this
+    }
+    sphericalEffect(value: double | undefined): this {
+        if (((this._flagArray[130]) == (0)) || ((this._sphericalEffect_0_0value) !== (value))) {
+            this._flagArray[130] = 1
+            this._sphericalEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[130] = 3
+        }
+        return this
+    }
+    lightUpEffect(value: double | undefined): this {
+        if (((this._flagArray[131]) == (0)) || ((this._lightUpEffect_0_0value) !== (value))) {
+            this._flagArray[131] = 1
+            this._lightUpEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[131] = 3
+        }
+        return this
+    }
+    pixelStretchEffect(value: PixelStretchEffectOptions | undefined): this {
+        if (((this._flagArray[132]) == (0)) || (true)) {
+            this._flagArray[132] = 1
+            this._pixelStretchEffect_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[132] = 3
+        }
+        return this
+    }
+    accessibilityNextFocusId(value: string | undefined): this {
+        if (((this._flagArray[133]) == (0)) || ((this._accessibilityNextFocusId_0_0value) !== (value))) {
+            this._flagArray[133] = 1
+            this._accessibilityNextFocusId_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[133] = 3
+        }
+        return this
+    }
+    accessibilityDefaultFocus(value: boolean | undefined): this {
+        if (((this._flagArray[134]) == (0)) || ((this._accessibilityDefaultFocus_0_0value) !== (value))) {
+            this._flagArray[134] = 1
+            this._accessibilityDefaultFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[134] = 3
+        }
+        return this
+    }
+    accessibilityUseSamePage(value: AccessibilitySamePageMode | undefined): this {
+        if (((this._flagArray[135]) == (0)) || (true)) {
+            this._flagArray[135] = 1
+            this._accessibilityUseSamePage_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[135] = 3
+        }
+        return this
+    }
+    accessibilityScrollTriggerable(value: boolean | undefined): this {
+        if (((this._flagArray[136]) == (0)) || ((this._accessibilityScrollTriggerable_0_0value) !== (value))) {
+            this._flagArray[136] = 1
+            this._accessibilityScrollTriggerable_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[136] = 3
+        }
+        return this
+    }
+    accessibilityText(value: global_resource_Resource | string | undefined): this {
+        if (((this._flagArray[137]) == (0)) || (true)) {
+            this._flagArray[137] = 1
+            this._accessibilityText_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[137] = 3
+        }
+        return this
+    }
+    accessibilityRole(value: AccessibilityRoleType | undefined): this {
+        if (((this._flagArray[138]) == (0)) || (true)) {
+            this._flagArray[138] = 1
+            this._accessibilityRole_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[138] = 3
+        }
+        return this
+    }
+    onAccessibilityFocus(value: AccessibilityFocusCallback | undefined): this {
+        if (((this._flagArray[139]) == (0)) || (true)) {
+            this._flagArray[139] = 1
+            this._onAccessibilityFocus_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[139] = 3
+        }
+        return this
+    }
+    onAccessibilityActionIntercept(value: AccessibilityActionInterceptCallback | undefined): this {
+        if (((this._flagArray[140]) == (0)) || (true)) {
+            this._flagArray[140] = 1
+            this._onAccessibilityActionIntercept_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[140] = 3
+        }
+        return this
+    }
+    accessibilityTextHint(value: string | undefined): this {
+        if (((this._flagArray[141]) == (0)) || ((this._accessibilityTextHint_0_0value) !== (value))) {
+            this._flagArray[141] = 1
+            this._accessibilityTextHint_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[141] = 3
+        }
+        return this
+    }
+    accessibilityDescription(value: global_resource_Resource | string | undefined): this {
+        if (((this._flagArray[142]) == (0)) || (true)) {
+            this._flagArray[142] = 1
+            this._accessibilityDescription_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[142] = 3
+        }
+        return this
+    }
+    accessibilityLevel(value: string | undefined): this {
+        if (((this._flagArray[143]) == (0)) || ((this._accessibilityLevel_0_0value) !== (value))) {
+            this._flagArray[143] = 1
+            this._accessibilityLevel_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[143] = 3
+        }
+        return this
+    }
+    accessibilityVirtualNode(value: CustomBuilder | undefined): this {
+        if (((this._flagArray[144]) == (0)) || (true)) {
+            this._flagArray[144] = 1
+            this._accessibilityVirtualNode_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[144] = 3
+        }
+        return this
+    }
+    accessibilityChecked(value: boolean | undefined): this {
+        if (((this._flagArray[145]) == (0)) || ((this._accessibilityChecked_0_0value) !== (value))) {
+            this._flagArray[145] = 1
+            this._accessibilityChecked_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[145] = 3
+        }
+        return this
+    }
+    accessibilitySelected(value: boolean | undefined): this {
+        if (((this._flagArray[146]) == (0)) || ((this._accessibilitySelected_0_0value) !== (value))) {
+            this._flagArray[146] = 1
+            this._accessibilitySelected_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[146] = 3
+        }
+        return this
+    }
+    obscured(value: Array<ObscuredReasons> | undefined): this {
+        if (((this._flagArray[147]) == (0)) || (true)) {
+            this._flagArray[147] = 1
+            this._obscured_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[147] = 3
+        }
+        return this
+    }
+    reuseId(value: string | undefined): this {
+        if (((this._flagArray[148]) == (0)) || ((this._reuseId_0_0value) !== (value))) {
+            this._flagArray[148] = 1
+            this._reuseId_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[148] = 3
+        }
+        return this
+    }
+    reuse(value: ReuseOptions | undefined): this {
+        if (((this._flagArray[149]) == (0)) || (true)) {
+            this._flagArray[149] = 1
+            this._reuse_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[149] = 3
+        }
+        return this
+    }
+    renderFit(value: RenderFit | undefined): this {
+        if (((this._flagArray[150]) == (0)) || (true)) {
+            this._flagArray[150] = 1
+            this._renderFit_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[150] = 3
+        }
+        return this
+    }
+    gestureModifier(value: GestureModifier | undefined): this {
+        if (((this._flagArray[151]) == (0)) || (true)) {
+            this._flagArray[151] = 1
+            this._gestureModifier_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[151] = 3
+        }
+        return this
+    }
+    backgroundBrightness(value: BackgroundBrightnessOptions | undefined): this {
+        if (((this._flagArray[152]) == (0)) || (true)) {
+            this._flagArray[152] = 1
+            this._backgroundBrightness_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[152] = 3
+        }
+        return this
+    }
+    onGestureJudgeBegin(value: ((gestureInfo: GestureInfo,event: BaseGestureEvent) => GestureJudgeResult) | undefined): this {
+        if (((this._flagArray[153]) == (0)) || (true)) {
+            this._flagArray[153] = 1
+            this._onGestureJudgeBegin_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[153] = 3
+        }
+        return this
+    }
+    onGestureRecognizerJudgeBegin(value: GestureRecognizerJudgeBeginCallback | undefined): this {
+        if (((this._flagArray[154]) == (0)) || (true)) {
+            this._flagArray[154] = 1
+            this._onGestureRecognizerJudgeBegin_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[154] = 3
+        }
+        return this
+    }
+    shouldBuiltInRecognizerParallelWith(value: ShouldBuiltInRecognizerParallelWithCallback | undefined): this {
+        if (((this._flagArray[155]) == (0)) || (true)) {
+            this._flagArray[155] = 1
+            this._shouldBuiltInRecognizerParallelWith_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[155] = 3
+        }
+        return this
+    }
+    monopolizeEvents(value: boolean | undefined): this {
+        if (((this._flagArray[156]) == (0)) || ((this._monopolizeEvents_0_0value) !== (value))) {
+            this._flagArray[156] = 1
+            this._monopolizeEvents_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[156] = 3
+        }
+        return this
+    }
+    onTouchIntercept(value: arkui_component_common_Callback<TouchEvent, HitTestMode> | undefined): this {
+        if (((this._flagArray[157]) == (0)) || (true)) {
+            this._flagArray[157] = 1
+            this._onTouchIntercept_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[157] = 3
+        }
+        return this
+    }
+    onSizeChange(value: SizeChangeCallback | undefined): this {
+        if (((this._flagArray[158]) == (0)) || (true)) {
+            this._flagArray[158] = 1
+            this._onSizeChange_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[158] = 3
+        }
+        return this
+    }
+    accessibilityFocusDrawLevel(value: FocusDrawLevel | undefined): this {
+        if (((this._flagArray[159]) == (0)) || (true)) {
+            this._flagArray[159] = 1
+            this._accessibilityFocusDrawLevel_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[159] = 3
+        }
+        return this
+    }
+    onTouchTestDone(value: TouchTestDoneCallback | undefined): this {
+        if (((this._flagArray[160]) == (0)) || (true)) {
+            this._flagArray[160] = 1
+            this._onTouchTestDone_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[160] = 3
+        }
+        return this
+    }
+    systemMaterial(value: SystemUiMaterial | undefined): this {
+        if (((this._flagArray[161]) == (0)) || (true)) {
+            this._flagArray[161] = 1
+            this._systemMaterial_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[161] = 3
+        }
+        return this
+    }
+    onNeedSoftkeyboard(value: OnNeedSoftkeyboardCallback | undefined): this {
+        if (((this._flagArray[162]) == (0)) || (true)) {
+            this._flagArray[162] = 1
+            this._onNeedSoftkeyboard_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[162] = 3
+        }
+        return this
+    }
+    accessibilityStateDescription(value: string | global_resource_Resource | undefined): this {
+        if (((this._flagArray[163]) == (0)) || (true)) {
+            this._flagArray[163] = 1
+            this._accessibilityStateDescription_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[163] = 3
+        }
+        return this
+    }
+    accessibilityActionOptions(value: AccessibilityActionOptions | undefined): this {
+        if (((this._flagArray[164]) == (0)) || (true)) {
+            this._flagArray[164] = 1
+            this._accessibilityActionOptions_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[164] = 3
+        }
+        return this
+    }
+    customProperty(name: string, value: CustomProperty): this {
+        hookCommonMethodModifierCustomProperty(this, name, value)
+        return this
+    }
+    expandSafeArea(types?: Array<SafeAreaType>, edges?: Array<SafeAreaEdge>): this {
+        if (((this._flagArray[166]) == (0)) || (true) || (true)) {
+            this._flagArray[166] = 1
+            this._expandSafeArea_0_0value = types
+            this._expandSafeArea_0_1value = edges
+            this._state.fireChange()
+        } else {
+            this._flagArray[166] = 3
+        }
+        return this
+    }
+    ignoreLayoutSafeArea(types?: Array<LayoutSafeAreaType>, edges?: Array<LayoutSafeAreaEdge>): this {
+        if (((this._flagArray[167]) == (0)) || (true) || (true)) {
+            this._flagArray[167] = 1
+            this._ignoreLayoutSafeArea_0_0value = types
+            this._ignoreLayoutSafeArea_0_1value = edges
+            this._state.fireChange()
+        } else {
+            this._flagArray[167] = 3
+        }
+        return this
+    }
+    background(content: CustomBuilder | ResourceColor | undefined, options?: BackgroundOptions): this {
+        if (((this._flagArray[168]) == (0)) || (true) || (true)) {
+            this._flagArray[168] = 1
+            this._background_0_0value = content
+            this._background_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[168] = 3
+        }
+        return this
+    }
+    backgroundImage(src: ResourceStr | PixelMap | undefined, options: BackgroundImageOptions): this {
+        if (((this._flagArray[169]) == (0)) || (true) || (true)) {
+            this._flagArray[169] = 1
+            this._backgroundImage_1_0value = src
+            this._backgroundImage_1_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[169] = 3
+        }
+        return this
+    }
+    backgroundImage(src: ResourceStr | PixelMap | undefined, repeat: ImageRepeat): this {
+        if (((this._flagArray[170]) == (0)) || (true) || (true)) {
+            this._flagArray[170] = 1
+            this._backgroundImage_2_0value = src
+            this._backgroundImage_2_1value = repeat
+            this._state.fireChange()
+        } else {
+            this._flagArray[170] = 3
+        }
+        return this
+    }
+    backgroundBlurStyle(style: BlurStyle | undefined, options?: BackgroundBlurStyleOptions, sysOptions?: SystemAdaptiveOptions): this {
+        if (((this._flagArray[171]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[171] = 1
+            this._backgroundBlurStyle_0_0value = style
+            this._backgroundBlurStyle_0_1value = options
+            this._backgroundBlurStyle_0_2value = sysOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[171] = 3
+        }
+        return this
+    }
+    backgroundEffect(options: BackgroundEffectOptions | undefined, sysOptions?: SystemAdaptiveOptions): this {
+        if (((this._flagArray[172]) == (0)) || (true) || (true)) {
+            this._flagArray[172] = 1
+            this._backgroundEffect_0_0value = options
+            this._backgroundEffect_0_1value = sysOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[172] = 3
+        }
+        return this
+    }
+    foregroundBlurStyle(style: BlurStyle | undefined, options?: ForegroundBlurStyleOptions, sysOptions?: SystemAdaptiveOptions): this {
+        if (((this._flagArray[173]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[173] = 1
+            this._foregroundBlurStyle_0_0value = style
+            this._foregroundBlurStyle_0_1value = options
+            this._foregroundBlurStyle_0_2value = sysOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[173] = 3
+        }
+        return this
+    }
+    borderRadius(value: Length | BorderRadiuses | LocalizedBorderRadiuses | undefined, type?: RenderStrategy): this {
+        if (((this._flagArray[174]) == (0)) || (true) || (true)) {
+            this._flagArray[174] = 1
+            this._borderRadius_0_0value = value
+            this._borderRadius_0_1value = type
+            this._state.fireChange()
+        } else {
+            this._flagArray[174] = 3
+        }
+        return this
+    }
+    onClick(event: ((event: ClickEvent) => void) | undefined, distanceThreshold: double | undefined): this {
+        if (((this._flagArray[175]) == (0)) || (true) || ((this._onClick_1_1value) !== (distanceThreshold))) {
+            this._flagArray[175] = 1
+            this._onClick_1_0value = event
+            this._onClick_1_1value = distanceThreshold
+            this._state.fireChange()
+        } else {
+            this._flagArray[175] = 3
+        }
+        return this
+    }
+    focusScopeId(id: string | undefined, isGroup?: boolean, arrowStepOut?: boolean): this {
+        if (((this._flagArray[176]) == (0)) || ((this._focusScopeId_0_0value) !== (id)) || ((this._focusScopeId_0_1value) !== (isGroup)) || ((this._focusScopeId_0_2value) !== (arrowStepOut))) {
+            this._flagArray[176] = 1
+            this._focusScopeId_0_0value = id
+            this._focusScopeId_0_1value = isGroup
+            this._focusScopeId_0_2value = arrowStepOut
+            this._state.fireChange()
+        } else {
+            this._flagArray[176] = 3
+        }
+        return this
+    }
+    focusScopePriority(scopeId: string | undefined, priority?: FocusPriority): this {
+        if (((this._flagArray[177]) == (0)) || ((this._focusScopePriority_0_0value) !== (scopeId)) || (true)) {
+            this._flagArray[177] = 1
+            this._focusScopePriority_0_0value = scopeId
+            this._focusScopePriority_0_1value = priority
+            this._state.fireChange()
+        } else {
+            this._flagArray[177] = 3
+        }
+        return this
+    }
+    transition(effect: TransitionEffect | undefined, onFinish: TransitionFinishCallback | undefined): this {
+        if (((this._flagArray[178]) == (0)) || (true) || (true)) {
+            this._flagArray[178] = 1
+            this._transition_1_0value = effect
+            this._transition_1_1value = onFinish
+            this._state.fireChange()
+        } else {
+            this._flagArray[178] = 3
+        }
+        return this
+    }
+    gesture(gesture: GestureType, mask?: GestureMask): this {
+        if (((this._flagArray[179]) == (0)) || (true) || (true)) {
+            this._flagArray[179] = 1
+            this._gesture_0_0value = gesture
+            this._gesture_0_1value = mask
+            this._state.fireChange()
+        } else {
+            this._flagArray[179] = 3
+        }
+        return this
+    }
+    priorityGesture(gesture: GestureType, mask?: GestureMask): this {
+        if (((this._flagArray[180]) == (0)) || (true) || (true)) {
+            this._flagArray[180] = 1
+            this._priorityGesture_0_0value = gesture
+            this._priorityGesture_0_1value = mask
+            this._state.fireChange()
+        } else {
+            this._flagArray[180] = 3
+        }
+        return this
+    }
+    parallelGesture(gesture: GestureType, mask?: GestureMask): this {
+        if (((this._flagArray[181]) == (0)) || (true) || (true)) {
+            this._flagArray[181] = 1
+            this._parallelGesture_0_0value = gesture
+            this._parallelGesture_0_1value = mask
+            this._state.fireChange()
+        } else {
+            this._flagArray[181] = 3
+        }
+        return this
+    }
+    blur(blurRadius: double | undefined, options?: BlurOptions, sysOptions?: SystemAdaptiveOptions): this {
+        if (((this._flagArray[182]) == (0)) || ((this._blur_0_0value) !== (blurRadius)) || (true) || (true)) {
+            this._flagArray[182] = 1
+            this._blur_0_0value = blurRadius
+            this._blur_0_1value = options
+            this._blur_0_2value = sysOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[182] = 3
+        }
+        return this
+    }
+    linearGradientBlur(value: double | undefined, options: LinearGradientBlurOptions | undefined): this {
+        if (((this._flagArray[183]) == (0)) || ((this._linearGradientBlur_0_0value) !== (value)) || (true)) {
+            this._flagArray[183] = 1
+            this._linearGradientBlur_0_0value = value
+            this._linearGradientBlur_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[183] = 3
+        }
+        return this
+    }
+    systemBarEffect(): this {
+        if ((this._flagArray[184]) == (0)) {
+            this._flagArray[184] = 1
+            this._state.fireChange()
+        } else {
+            this._flagArray[184] = 3
+        }
+        return this
+    }
+    useEffect(useEffect: boolean | undefined, effectType: EffectType | undefined): this {
+        if (((this._flagArray[185]) == (0)) || ((this._useEffect_1_0value) !== (useEffect)) || (true)) {
+            this._flagArray[185] = 1
+            this._useEffect_1_0value = useEffect
+            this._useEffect_1_1value = effectType
+            this._state.fireChange()
+        } else {
+            this._flagArray[185] = 3
+        }
+        return this
+    }
+    backdropBlur(radius: double | undefined, options?: BlurOptions, sysOptions?: SystemAdaptiveOptions): this {
+        if (((this._flagArray[186]) == (0)) || ((this._backdropBlur_0_0value) !== (radius)) || (true) || (true)) {
+            this._flagArray[186] = 1
+            this._backdropBlur_0_0value = radius
+            this._backdropBlur_0_1value = options
+            this._backdropBlur_0_2value = sysOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[186] = 3
+        }
+        return this
+    }
+    sharedTransition(id: string | undefined, options?: sharedTransitionOptions): this {
+        if (((this._flagArray[187]) == (0)) || ((this._sharedTransition_0_0value) !== (id)) || (true)) {
+            this._flagArray[187] = 1
+            this._sharedTransition_0_0value = id
+            this._sharedTransition_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[187] = 3
+        }
+        return this
+    }
+    chainMode(direction: Axis | undefined, style: ChainStyle | undefined): this {
+        if (((this._flagArray[188]) == (0)) || (true) || (true)) {
+            this._flagArray[188] = 1
+            this._chainMode_0_0value = direction
+            this._chainMode_0_1value = style
+            this._state.fireChange()
+        } else {
+            this._flagArray[188] = 3
+        }
+        return this
+    }
+    onDrop(eventCallback: OnDragEventCallback | undefined, dropOptions: DropOptions): this {
+        if (((this._flagArray[189]) == (0)) || (true) || (true)) {
+            this._flagArray[189] = 1
+            this._onDrop_1_0value = eventCallback
+            this._onDrop_1_1value = dropOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[189] = 3
+        }
+        return this
+    }
+    onDragSpringLoading(callback_: arkui_component_common_Callback<SpringLoadingContext, void> | null | undefined, configuration?: DragSpringLoadingConfiguration): this {
+        if (((this._flagArray[190]) == (0)) || (true) || (true)) {
+            this._flagArray[190] = 1
+            this._onDragSpringLoading_0_0value = callback_
+            this._onDragSpringLoading_0_1value = configuration
+            this._state.fireChange()
+        } else {
+            this._flagArray[190] = 3
+        }
+        return this
+    }
+    dragPreview(preview: CustomBuilder | DragItemInfo | string | undefined, config?: PreviewConfiguration): this {
+        if (((this._flagArray[191]) == (0)) || (true) || (true)) {
+            this._flagArray[191] = 1
+            this._dragPreview_0_0value = preview
+            this._dragPreview_0_1value = config
+            this._state.fireChange()
+        } else {
+            this._flagArray[191] = 3
+        }
+        return this
+    }
+    dragPreviewOptions(value: DragPreviewOptions | undefined, options?: DragInteractionOptions): this {
+        if (((this._flagArray[192]) == (0)) || (true) || (true)) {
+            this._flagArray[192] = 1
+            this._dragPreviewOptions_0_0value = value
+            this._dragPreviewOptions_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[192] = 3
+        }
+        return this
+    }
+    overlay(value: string | CustomBuilder | ComponentContent<Object> | undefined, options?: OverlayOptions): this {
+        if (((this._flagArray[193]) == (0)) || (true) || (true)) {
+            this._flagArray[193] = 1
+            this._overlay_0_0value = value
+            this._overlay_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[193] = 3
+        }
+        return this
+    }
+    blendMode(value: BlendMode | undefined, type?: BlendApplyType): this {
+        if (((this._flagArray[194]) == (0)) || (true) || (true)) {
+            this._flagArray[194] = 1
+            this._blendMode_0_0value = value
+            this._blendMode_0_1value = type
+            this._state.fireChange()
+        } else {
+            this._flagArray[194] = 3
+        }
+        return this
+    }
+    advancedBlendMode(effect: BlendMode | Blender | undefined, type?: BlendApplyType): this {
+        if (((this._flagArray[195]) == (0)) || (true) || (true)) {
+            this._flagArray[195] = 1
+            this._advancedBlendMode_0_0value = effect
+            this._advancedBlendMode_0_1value = type
+            this._state.fireChange()
+        } else {
+            this._flagArray[195] = 3
+        }
+        return this
+    }
+    geometryTransition(id: string | undefined, options?: GeometryTransitionOptions): this {
+        if (((this._flagArray[196]) == (0)) || ((this._geometryTransition_0_0value) !== (id)) || (true)) {
+            this._flagArray[196] = 1
+            this._geometryTransition_0_0value = id
+            this._geometryTransition_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[196] = 3
+        }
+        return this
+    }
+    bindTips(message: TipsMessageType | undefined, options?: TipsOptions): this {
+        if (((this._flagArray[197]) == (0)) || (true) || (true)) {
+            this._flagArray[197] = 1
+            this._bindTips_0_0value = message
+            this._bindTips_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[197] = 3
+        }
+        return this
+    }
+    bindPopup(show: boolean | undefined, popup: PopupOptions | CustomPopupOptions | undefined): this {
+        if (((this._flagArray[198]) == (0)) || ((this._bindPopup_0_0value) !== (show)) || (true)) {
+            this._flagArray[198] = 1
+            this._bindPopup_0_0value = show
+            this._bindPopup_0_1value = popup
+            this._state.fireChange()
+        } else {
+            this._flagArray[198] = 3
+        }
+        return this
+    }
+    bindMenu(content: Array<MenuElement> | CustomBuilder | undefined, options?: MenuOptions): this {
+        if (((this._flagArray[199]) == (0)) || (true) || (true)) {
+            this._flagArray[199] = 1
+            this._bindMenu_0_0value = content
+            this._bindMenu_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[199] = 3
+        }
+        return this
+    }
+    bindMenu(isShow: boolean | Bindable<boolean> | undefined, content: Array<MenuElement> | CustomBuilder | undefined, options?: MenuOptions): this {
+        if (((this._flagArray[200]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[200] = 1
+            this._bindMenu_1_0value = isShow
+            this._bindMenu_1_1value = content
+            this._bindMenu_1_2value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[200] = 3
+        }
+        return this
+    }
+    bindContextMenu(content: CustomBuilder | undefined, responseType: ResponseType | undefined, options?: ContextMenuOptions): this {
+        if (((this._flagArray[201]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[201] = 1
+            this._bindContextMenu_0_0value = content
+            this._bindContextMenu_0_1value = responseType
+            this._bindContextMenu_0_2value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[201] = 3
+        }
+        return this
+    }
+    bindContextMenuWithResponse(content: CustomBuilderT<ResponseType> | undefined, options?: ContextMenuOptions): this {
+        if (((this._flagArray[202]) == (0)) || (true) || (true)) {
+            this._flagArray[202] = 1
+            this._bindContextMenuWithResponse_0_0value = content
+            this._bindContextMenuWithResponse_0_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[202] = 3
+        }
+        return this
+    }
+    bindContextMenu(isShow: boolean | Bindable<boolean> | undefined, content: CustomBuilder | undefined, options?: ContextMenuOptions): this {
+        if (((this._flagArray[203]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[203] = 1
+            this._bindContextMenu_1_0value = isShow
+            this._bindContextMenu_1_1value = content
+            this._bindContextMenu_1_2value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[203] = 3
+        }
+        return this
+    }
+    bindContentCover(isShow: boolean | Bindable<boolean> | undefined, builder: CustomBuilder | undefined, type?: ModalTransition): this {
+        if (((this._flagArray[204]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[204] = 1
+            this._bindContentCover_0_0value = isShow
+            this._bindContentCover_0_1value = builder
+            this._bindContentCover_0_2value = type
+            this._state.fireChange()
+        } else {
+            this._flagArray[204] = 3
+        }
+        return this
+    }
+    bindContentCover(isShow: boolean | Bindable<boolean> | undefined, builder: CustomBuilder | undefined, options?: ContentCoverOptions): this {
+        if (((this._flagArray[205]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[205] = 1
+            this._bindContentCover_1_0value = isShow
+            this._bindContentCover_1_1value = builder
+            this._bindContentCover_1_2value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[205] = 3
+        }
+        return this
+    }
+    bindSheet(isShow: boolean | Bindable<boolean> | undefined, builder: CustomBuilder | undefined, options?: SheetOptions): this {
+        if (((this._flagArray[206]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[206] = 1
+            this._bindSheet_0_0value = isShow
+            this._bindSheet_0_1value = builder
+            this._bindSheet_0_2value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[206] = 3
+        }
+        return this
+    }
+    onVisibleAreaChange(ratios: Array<double> | undefined, event: VisibleAreaChangeCallback | undefined): this {
+        if (((this._flagArray[207]) == (0)) || ((this._onVisibleAreaChange_0_0value) !== (ratios)) || (true)) {
+            this._flagArray[207] = 1
+            this._onVisibleAreaChange_0_0value = ratios
+            this._onVisibleAreaChange_0_1value = event
+            this._state.fireChange()
+        } else {
+            this._flagArray[207] = 3
+        }
+        return this
+    }
+    onVisibleAreaApproximateChange(options: VisibleAreaEventOptions | undefined, event: VisibleAreaChangeCallback | undefined): this {
+        if (((this._flagArray[208]) == (0)) || (true) || (true)) {
+            this._flagArray[208] = 1
+            this._onVisibleAreaApproximateChange_0_0value = options
+            this._onVisibleAreaApproximateChange_0_1value = event
+            this._state.fireChange()
+        } else {
+            this._flagArray[208] = 3
+        }
+        return this
+    }
+    keyboardShortcut(value: string | FunctionKey | undefined, keys: Array<ModifierKey> | undefined, action?: (() => void)): this {
+        if (((this._flagArray[209]) == (0)) || (true) || (true) || (true)) {
+            this._flagArray[209] = 1
+            this._keyboardShortcut_0_0value = value
+            this._keyboardShortcut_0_1value = keys
+            this._keyboardShortcut_0_2value = action
+            this._state.fireChange()
+        } else {
+            this._flagArray[209] = 3
+        }
+        return this
+    }
+    accessibilityGroup(isGroup: boolean | undefined, accessibilityOptions?: AccessibilityOptions): this {
+        if (((this._flagArray[210]) == (0)) || ((this._accessibilityGroup_0_0value) !== (isGroup)) || (true)) {
+            this._flagArray[210] = 1
+            this._accessibilityGroup_0_0value = isGroup
+            this._accessibilityGroup_0_1value = accessibilityOptions
+            this._state.fireChange()
+        } else {
+            this._flagArray[210] = 3
+        }
+        return this
+    }
+    onGestureRecognizerJudgeBegin(callback_: GestureRecognizerJudgeBeginCallback | undefined, exposeInnerGesture: boolean | undefined): this {
+        if (((this._flagArray[211]) == (0)) || (true) || ((this._onGestureRecognizerJudgeBegin_1_1value) !== (exposeInnerGesture))) {
+            this._flagArray[211] = 1
+            this._onGestureRecognizerJudgeBegin_1_0value = callback_
+            this._onGestureRecognizerJudgeBegin_1_1value = exposeInnerGesture
+            this._state.fireChange()
+        } else {
+            this._flagArray[211] = 3
+        }
+        return this
+    }
+    debugLine(sourceLine: string, moduleName?: string): this {
+        if (((this._flagArray[212]) == (0)) || ((this._debugLine_0_0value) !== (sourceLine)) || ((this._debugLine_0_1value) !== (moduleName)))
+        {
+            this._flagArray[212] = 1
+            this._debugLine_0_0value = sourceLine
+            this._debugLine_0_1value = moduleName
+            this._state.fireChange()
+        } else
+        {
+            this._flagArray[212] = 3
+        }
+        return this
+    }
+    onAreaChange(event: AreaChangeCallback, options?: AreaChangeOptions): this {
+        if (((this._flagArray[213]) == (0)) || (true) || (true)) {
+            this._flagArray[213] = 1
+            this._onAreaChange_1_0value = event
+            this._onAreaChange_1_1value = options
+            this._state.fireChange()
+        } else {
+            this._flagArray[213] = 3
+        }
+        return this
+    }
+    toolbar(value: CustomBuilder | undefined): this {
+        if (((this._flagArray[214]) == (0)) || (true)) {
+            this._flagArray[214] = 1
+            this._toolbar_0_0value = value
+            this._state.fireChange()
+        } else {
+            this._flagArray[214] = 3
+        }
+        return this
+    }
+    public attributeModifier(value: AttributeModifier<CommonMethod> | undefined): this {
+        throw new Error('Not implemented')
+    }
+}

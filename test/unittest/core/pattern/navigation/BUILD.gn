@@ -1,0 +1,73 @@
+# Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
+
+ace_unittest("navigation_test_ng") {
+  module_name = "Animation-Path"
+  type = "new"
+  sources = [
+    "$ace_root/frameworks/core/components_ng/pattern/navigation/navigation_model_static.cpp",
+    "$ace_root/test/mock/frameworks/core/common/mock_window.cpp",
+    "bar_item_test_ng.cpp",
+    "bar_style_test_ng.cpp",
+    "complex_function_test_ng.cpp",
+    "mock_navigation_stack.cpp",
+    "nav_bar_test_ng.cpp",
+    "navdestination_base_test_ng.cpp",
+    "navdestination_pattern_base_test_ng.cpp",
+    "navdestination_test_ng.cpp",
+    "navigation_active_test_ng.cpp",
+    "navigation_animation_test_ng.cpp",
+    "navigation_branch_test_ng.cpp",
+    "navigation_callback_test_ng.cpp",
+    "navigation_drag_bar_test_ng.cpp",
+    "navigation_focus_test.cpp",
+    "navigation_group_node_test_ng.cpp",
+    "navigation_layout_algorithm_test.cpp",
+    "navigation_layout_test_ng.cpp",
+    "navigation_layout_util_test.cpp",
+    "navigation_lifecycle_test_ng.cpp",
+    "navigation_manager_test_ng.cpp",
+    "navigation_model_test_ng.cpp",
+    "navigation_model_test_two_ng.cpp",
+    "navigation_pattern_test_eight_ng.cpp",
+    "navigation_pattern_test_five_ng.cpp",
+    "navigation_pattern_test_four_ng.cpp",
+    "navigation_pattern_test_ng.cpp",
+    "navigation_pattern_test_seven_ng.cpp",
+    "navigation_pattern_test_six_ng.cpp",
+    "navigation_pattern_test_three_ng.cpp",
+    "navigation_pattern_test_two_ng.cpp",
+    "navigation_stack_test_ng.cpp",
+    "navigation_sync_stack_test_ng.cpp",
+    "navigation_system_bar_style_test_ng.cpp",
+    "navigation_test_ng.cpp",
+    "title_bar_pattern_test_ng.cpp",
+    "title_bar_test_ng.cpp",
+    "tool_bar_test_ng.cpp",
+  ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [
+      "navigation_test_min.cpp",
+      "navigation_test_core.cpp",
+    ]
+  } else {
+    sources += [
+      "navigation_test_min.cpp",
+      "navigation_test_core.cpp",
+    ]
+  }
+}

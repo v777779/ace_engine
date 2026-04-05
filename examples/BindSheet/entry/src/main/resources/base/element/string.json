@@ -1,0 +1,148 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "label"
+    },
+    {
+      "name": "SideSheet1",
+      "value": "SideSheet基础显示"
+    },
+    {
+      "name": "SideSheet2",
+      "value": "SideSheet视效1"
+    },
+    {
+      "name": "SideSheet3",
+      "value": "SideSheet视效2"
+    },
+    {
+      "name": "SideSheet4",
+      "value": "SideSheet回调接口测试"
+    },
+    {
+      "name": "SideSheet5",
+      "value": "SideSheet其他能力测试"
+    },
+    {
+      "name": "SideSheet6",
+      "value": "模态在多设备下的形态转换"
+    },
+    {
+      "name": "SideSheet7",
+      "value": "半模态新增Side多态样式"
+    },
+    {
+      "name": "SideSheet8",
+      "value": "半模态无极跟随主窗口拖拽移动"
+    },
+    {
+      "name": "SideSheet9",
+      "value": "SideSheet通过宽度回调挤压页面"
+    },
+    {
+      "name": "simpleSheet",
+      "value": "半模态基础样例"
+    },
+    {
+      "name": "MaxHeight1",
+      "value": "半模态最大高度"
+    },
+    {
+      "name": "AvoidKeyboard1",
+      "value": "半模态避让键盘"
+    },
+    {
+      "name": "AvoidKeyboard2",
+      "value": "Resize_only"
+    },
+    {
+      "name": "MultiDevice1",
+      "value": "全模态"
+    },
+    {
+      "name": "MultiDevice2",
+      "value": "半模态(直板机)"
+    },
+    {
+      "name": "MultiDevice3",
+      "value": "半模态所在页面是否允许交互(默认值)"
+    },
+    {
+      "name": "MultiDevice4",
+      "value": "半模态所在页面是否允许交互(默认值)(Only全屏)"
+    },
+    {
+      "name": "MultiDevice5",
+      "value": "共享元素转场(一镜到底)"
+    },
+    {
+      "name": "MultiDevice6",
+      "value": "UiContext"
+    },
+    {
+      "name": "MultiDevice7",
+      "value": "半模态(折叠机/平板)"
+    },
+    {
+      "name": "MultiDevice8",
+      "value": "半模态(PC)"
+    },
+    {
+      "name": "MultiDevice9",
+      "value": "键盘避让"
+    },
+    {
+      "name": "MultiDevice10",
+      "value": "内容区域刷新时机"
+    },
+    {
+      "name": "AccessibilityModal",
+      "value": "无障碍信息中携带模态状态信息"
+    },
+    {
+      "name": "Example1",
+      "value": "不同高度的半模态弹窗"
+    },
+    {
+      "name": "Example2",
+      "value": "设置三个不同高度的挡位"
+    },
+    {
+      "name": "Example3",
+      "value": "使用边框宽度和颜色"
+    },
+    {
+      "name": "Example4",
+      "value": "使用关闭回调函数"
+    },
+    {
+      "name": "Example5",
+      "value": "设置内容区刷新时机"
+    },
+    {
+      "name": "Example6",
+      "value": "设置压缩模态内容"
+    },
+    {
+      "name": "Example7",
+      "value": "镜像场景下如何设置圆角属性"
+    },
+    {
+      "name": "Example8",
+      "value": "半模态Side侧边样式"
+    },
+    {
+      "name": "Example9",
+      "value": "半模态ContentCover全屏样式"
+     }
+  ]
+}

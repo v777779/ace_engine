@@ -1,0 +1,115 @@
+/*
+ * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "ability_context.h"
+#include "ability_info.h"
+#include "context_impl.h"
+#include "gtest/gtest.h"
+#include "core/common/container_consts.h"
+#include "interfaces/inner_api/ace/ui_content.h"
+
+using namespace testing;
+using namespace testing::ext;
+
+namespace OHOS::Ace {
+class UiContentTest : public testing::Test {};
+
+/**
+ * @tc.name: DumpTest001
+ * @tc.desc: test Dump infos
+ * @tc.type: FUNC
+ */
+HWTEST_F(UiContentTest, DumpTest001, TestSize.Level1)
+{
+    auto infos = std::vector<std::string>();
+    UIContent::ShowDumpHelp(infos);
+    EXPECT_GT(infos.size(), 0);
+    for (const auto& info : infos) {
+        GTEST_LOG_(INFO) << info;
+    }
+}
+
+/**
+ * @tc.name: GetUIContent001
+ * @tc.desc: test GetCurrentUIStackInfo/GetUIContent
+ * @tc.type: FUNC
+ */
+HWTEST_F(UiContentTest, GetUIContent001, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: Call GetUIContent function with invalid instanceId(1)
+     * @tc.expected: The returned pointer is null
+     */
+    int32_t instanceId = 1;
+    UIContent* ret = UIContent::GetUIContent(instanceId);
+    EXPECT_TRUE(ret == nullptr);
+
+    /**
+     * @tc.steps2: Call GetCurrentUIStackInfo function
+     * @tc.expected: The returned string is empty
+     */
+    std::string ret2 = UIContent::GetCurrentUIStackInfo();
+    EXPECT_TRUE(ret2 == std::string());
+}
+
+/**
+ * @tc.name: GetUIContent002
+ * @tc.desc: test GetUIContent
+ * @tc.type: FUNC
+ */
+HWTEST_F(UiContentTest, GetUIContent002, TestSize.Level1)
+{
+    int32_t instanceId = DC_CONTAINER * CONTAINER_ID_DIVIDE_SIZE;
+    UIContent* ret = UIContent::GetUIContent(instanceId);
+    EXPECT_TRUE(ret == nullptr);
+}
+
+/**
+ * @tc.name: GetUIContent003
+ * @tc.desc: test UIContent::Create
+ * @tc.type: FUNC
+ */
+HWTEST_F(UiContentTest, GetUIContent003, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: Call UIContent::Create function with null parameters
+     * @tc.expected: The returned shared_ptr is valid (not null)
+     */
+    std::shared_ptr<UIContent> ret = UIContent::Create(nullptr, nullptr);
+    EXPECT_TRUE(ret);
+    /**
+     * @tc.steps2: Call InitializeByNameWithAniStorage function with null page name and storage
+     * @tc.expected: The returned error code is UIContentErrorCode::NO_ERRORS
+     */
+    ani_object storage = nullptr;
+    UIContentErrorCode errorCode = ret->InitializeByNameWithAniStorage(nullptr, "", storage, 0);
+    EXPECT_TRUE(errorCode == UIContentErrorCode::NO_ERRORS);
+}
+
+/**
+ * @tc.name: GetWindowIdTest001
+ * @tc.desc: test GetWindowId
+ * @tc.type: FUNC
+ */
+HWTEST_F(UiContentTest, GetWindowIdTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps1: getWindowId
+     * @tc.expected: windowId == -1
+     */
+    auto windowIdByDefault = UIContent::GetUIContentWindowID(CONTAINER_ID_DIVIDE_SIZE);
+    EXPECT_TRUE(windowIdByDefault == -1);
+}
+} // namespace OHOS::Ace

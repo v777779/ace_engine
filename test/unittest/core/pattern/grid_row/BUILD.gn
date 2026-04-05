@@ -1,0 +1,38 @@
+# Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//foundation/arkui/ace_engine/test/unittest/ace_unittest.gni")
+
+ace_unittest("grid_row_test_ng") {
+  type = "new"
+  module_name = "Layout-GridRow"
+  sources = [
+    "feature/grid_container_utils_test_ng.cpp",
+    "feature/grid_row_breakpoints_test_ng.cpp",
+    "feature/grid_row_calc_gridcol_pos_test_ng.cpp",
+    "feature/grid_row_layoutpolicy_test_ng.cpp",
+    "grid_row_base_test_ng.cpp",
+    "grid_row_multithread_test_ng.cpp",
+    "grid_row_new_test_ng.cpp",
+    "layout/grid_row_layout_test_ng.cpp",
+    "measure/gridrow_measure_test_ng.cpp",
+    "old_cases/grid_row_test_ng.cpp",
+  ]
+
+  if (!ace_enable_full_test_suite) {
+    sources = []
+    sources = [ "grid_row_test_core.cpp" ]
+  } else {
+    sources += [ "grid_row_test_core.cpp" ]
+  }
+}

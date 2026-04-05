@@ -1,0 +1,284 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_BASE_PROPERTIES_COLOR_H
+#define FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_BASE_PROPERTIES_COLOR_H
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "ui/base/macros.h"
+
+namespace OHOS::Ace {
+
+constexpr uint32_t COLOR_ALPHA_MASK = 0xff000000;
+
+union ColorParam {
+#if BIG_ENDIANNESS
+    struct {
+        uint8_t alpha;
+        uint8_t red;
+        uint8_t green;
+        uint8_t blue;
+    } argb;
+#else
+    struct {
+        uint8_t blue;
+        uint8_t green;
+        uint8_t red;
+        uint8_t alpha;
+    } argb;
+#endif
+    uint32_t value;
+};
+
+enum ColorSpace {
+    SRGB = 0,
+    DISPLAY_P3 = 1,
+};
+
+// Predefined dynamic color placeholders. Backend render service resolves these into concrete colors.
+enum class ColorPlaceholder : uint8_t {
+    NONE = 0,
+    SURFACE = 1,
+    SURFACE_CONTRAST = 2,
+    TEXT_CONTRAST = 3,
+    ACCENT = 4,
+    FOREGROUND = 5,
+    BRAND,
+    BRAND_FONT,
+    WARNING,
+    FONT_ON_PRIMARY,
+    FONT_PRIMARY,
+    FONT_SECONDARY,
+    FONT_TERTIARY,
+    FONT_FOURTH,
+    FONT_EMPHASIZE,
+    ICON_PRIMARY,
+    ICON_SECONDARY,
+    ICON_TERTIARY,
+    ICON_FOURTH,
+    ICON_EMPHASIZE,
+    ICON_SUB_EMPHASIZE,
+    COMP_BACKGROUND_PRIMARY_CONTRARY,
+    COMP_BACKGROUND_PRIMARY_CONTRARY_SECONDARY,
+    COMP_BACKGROUND_SECONDARY,
+    COMP_BACKGROUND_TERTIARY,
+    COMP_BACKGROUND_EMPHASIZE,
+    COMP_EMPHASIZE_SECONDARY,
+    COMP_EMPHASIZE_TERTIARY,
+    COMP_DIVIDER,
+    INTERACTIVE_HOVER,
+    INTERACTIVE_FOCUS,
+    INTERACTIVE_PRESSED,
+    MAX = INTERACTIVE_PRESSED
+};
+
+// Strategy used by dynamic color picker extraction.
+enum class ColorPickStrategy : char {
+    NONE = 0,
+    DOMINANT = 1,
+    AVERAGE = 2,
+    CONTRAST = 3,
+};
+
+// A color value present by 32 bit.
+class ACE_FORCE_EXPORT Color {
+public:
+    Color() = default;
+    constexpr explicit Color(uint32_t value) : colorValue_(ColorParam { .value = value }) {}
+    constexpr explicit Color(uint32_t value, uint32_t resId)
+        : colorValue_(ColorParam { .value = value }), resourceId_(resId) {}
+    constexpr explicit Color(uint32_t value, ColorSpace colorSpace)
+        : colorValue_(ColorParam { .value = value }), colorSpace_(colorSpace)
+    {}
+    ~Color() = default;
+
+    static Color FromARGB(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue);
+    static Color FromRGBO(uint8_t red, uint8_t green, uint8_t blue, double opacity);
+    static Color FromRGB(uint8_t red, uint8_t green, uint8_t blue);
+    // Need to change the input parameters, it is more appropriate to use the passed value here.
+    static Color FromString(std::string colorStr, uint32_t maskAlpha = COLOR_ALPHA_MASK,
+        Color defaultColor = Color::BLACK);
+    static bool ParseColorString(std::string colorStr, Color& color, uint32_t maskAlpha = COLOR_ALPHA_MASK);
+    static bool ParseColorString(const std::string& colorStr, Color& color, const Color& defaultColor,
+        uint32_t maskAlpha = COLOR_ALPHA_MASK);
+    // Return the linear transition color from startColor to endColor.
+    static const Color LineColorTransition(const Color& startColor, const Color& endColor, double percent);
+
+    static const Color TRANSPARENT;
+    static const Color WHITE;
+    static const Color BLACK;
+    static const Color RED;
+    static const Color GREEN;
+    static const Color BLUE;
+    static const Color GRAY;
+    static const Color FOREGROUND;
+
+    Color BlendColor(const Color& overlayColor) const;
+
+    Color BlendColorWithAlpha(const Color& overlayColor) const;
+    Color BlendOpacity(double opacityRatio) const;
+    Color ChangeOpacity(double opacity) const;
+    Color ChangeAlpha(uint8_t alpha) const;
+
+    void SetValue(uint32_t value)
+    {
+        colorValue_.value = value;
+    }
+
+    uint32_t GetValue() const
+    {
+        return colorValue_.value;
+    }
+
+    void SetColorSpace(ColorSpace colorSpace)
+    {
+        colorSpace_ = colorSpace;
+    }
+
+    ColorSpace GetColorSpace() const
+    {
+        return colorSpace_;
+    }
+
+    void SetResourceId(uint32_t id)
+    {
+        resourceId_ = id;
+    }
+
+    uint32_t GetResourceId() const
+    {
+        return resourceId_;
+    }
+
+    uint8_t GetAlpha() const
+    {
+        return colorValue_.argb.alpha;
+    }
+
+    uint8_t GetRed() const
+    {
+        return colorValue_.argb.red;
+    }
+
+    uint8_t GetGreen() const
+    {
+        return colorValue_.argb.green;
+    }
+
+    uint8_t GetBlue() const
+    {
+        return colorValue_.argb.blue;
+    }
+
+    void UpdateColorByResourceId();
+
+    bool operator==(const Color& color) const
+    {
+        if (IsPlaceholder() || color.IsPlaceholder()) {
+            return placeholder_ == color.placeholder_ && colorSpace_ == color.colorSpace_ &&
+                   colorValue_.value == color.GetValue();
+        }
+        return colorValue_.value == color.GetValue() && colorSpace_ == color.GetColorSpace();
+    }
+
+    bool operator!=(const Color& color) const
+    {
+        return !operator==(color);
+    }
+
+    Color operator+(const Color& color) const;
+
+    Color operator-(const Color& color) const;
+
+    Color operator*(double value) const;
+
+    Color operator/(double value) const;
+
+    std::string ColorToString() const;
+    std::string ToSvgFillColorKey() const;
+
+    static Color ColorFromString(const std::string& str);
+    static bool MatchColorHexString(const std::string& colorStr);
+    static bool MatchColorWithMagic(std::string& colorStr, uint32_t maskAlpha, Color& color);
+    static bool MatchColorWithMagicMini(std::string& colorStr, uint32_t maskAlpha, Color& color);
+    static bool MatchColorSpecialString(const std::string& colorStr, Color& color);
+    static bool MatchPlaceholderString(const std::string& colorStr, ColorPlaceholder& placeholder);
+
+    /* color placeholder interfaces */
+    explicit Color(ColorPlaceholder ph)
+    {
+        placeholder_ = ph;
+    }
+
+    bool IsPlaceholder() const
+    {
+        return placeholder_ != ColorPlaceholder::NONE;
+    }
+
+    ColorPlaceholder GetPlaceholder() const
+    {
+        return placeholder_;
+    }
+
+    void SetPlaceholder(ColorPlaceholder ph)
+    {
+        placeholder_ = ph;
+    }
+
+    std::string ToString() const;
+
+    /**
+     * @param resourceId If the resource ID is a special value, fill the placeholder value in the color object
+     * accordingly; otherwise, the placeholder remains unchanged.
+     */
+    void FillColorPlaceholderIfNeed(uint32_t resourceId);
+
+    /**
+     * @param name If the name is a special value, fill the placeholder value in the color object
+     * accordingly; otherwise, the placeholder remains unchanged.
+     */
+    void FillColorPlaceholderIfNeed(const std::string& name);
+
+private:
+    constexpr explicit Color(ColorParam colorValue) : colorValue_(colorValue) {}
+
+    static double ConvertGammaToLinear(uint8_t value);
+    static void ConvertGammaToLinear(
+        const Color& gammaColor, double& linearRed, double& linearGreen, double& linearBlue);
+    static uint8_t ConvertLinearToGamma(double value);
+    static Color ConvertLinearToGamma(double alpha, double linearRed, double linearGreen, double linearBlue);
+    static bool MatchColorWithRGB(const std::string& colorStr, Color& color);
+    static bool MatchColorWithRGBA(const std::string& colorStr, Color& color);
+    static bool ParseUintColorString(const std::string& colorStr, Color& color);
+    static bool ParseUintColorString(const std::string& colorStr, Color& color, const Color& defaultColor);
+    static bool IsRGBValid(int value);
+    static bool IsOpacityValid(double value);
+    static bool FastCheckColorType(const std::string& colorStr, const std::string& expectPrefix,
+        const std::vector<size_t>& expectLengths);
+    static bool IsHexNumber(std::string& colorStr);
+
+    float CalculateBlend(float alphaLeft, float alphaRight, float valueLeft, float valueRight) const;
+    ColorParam colorValue_ { .value = 0xff000000 };
+    uint32_t resourceId_ = 0;
+    ColorSpace colorSpace_ = ColorSpace::SRGB;
+    ColorPlaceholder placeholder_ = ColorPlaceholder::NONE; // Dynamic placeholder kind, NONE means concrete color.
+};
+
+} // namespace OHOS::Ace
+
+#endif // FOUNDATION_ACE_INTERFACES_INNER_API_ACE_KIT_INCLUDE_BASE_PROPERTIES_COLOR_H

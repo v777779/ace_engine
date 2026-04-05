@@ -1,0 +1,182 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#define protected public
+#define private public
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include <unistd.h>
+#include "core/image/image_file_cache.h"
+#include "core/image/image_loader.h"
+using namespace testing;
+using namespace testing::ext;
+
+namespace OHOS::Ace {
+namespace {
+    const std::string BUNDLE_NAME = "com.example.testImageLoader";
+    const int32_t TEST_SIZE = 100;
+    const std::string CACHE_FILE_PATH = "/data";
+}
+
+class ImageLoaderTest : public testing::Test {
+public:
+    static void SetUpTestCase();
+    static void TearDownTestCase();
+    void SetUp() {}
+    void TearDown() {}
+};
+
+void ImageLoaderTest::SetUpTestCase()
+{
+    Testing::g_imageDataSize = 0;
+}
+
+void ImageLoaderTest::TearDownTestCase()
+{
+    Testing::g_imageDataSize = 0;
+}
+
+/**
+ * @tc.name: LoadDataFromCachedFile001
+ * @tc.desc: write data into cacheFilePath success.
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImageLoaderTest, LoadDataFromCachedFile001, TestSize.Level1)
+{
+    std::vector<uint8_t> imageData = { 1, 2, 3, 4, 5, 6 };
+    std::string url = "http://testfilecache002/image";
+
+    ImageFileCache::GetInstance().SetImageCacheFilePath(CACHE_FILE_PATH);
+    auto imageFileCache = ImageLoader::LoadDataFromCachedFile(url);
+    EXPECT_NE(imageFileCache, nullptr);
+
+    std::string cacheFilePath(PATH_MAX + 1, 'a');
+    ImageFileCache::GetInstance().SetImageCacheFilePath(cacheFilePath);
+
+    imageFileCache = ImageLoader::LoadDataFromCachedFile(url);
+    EXPECT_EQ(imageFileCache, nullptr);
+
+    cacheFilePath = "";
+    ImageFileCache::GetInstance().SetImageCacheFilePath(cacheFilePath);
+    imageFileCache = ImageLoader::LoadDataFromCachedFile(url);
+    EXPECT_EQ(imageFileCache, nullptr);
+}
+
+/**
+ * @tc.name: BuildImageData
+ * @tc.desc: Test for BuildImageData
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImageLoaderTest, BuildImageData, TestSize.Level1)
+{
+    auto rsData = std::make_shared<RSData>();
+    Testing::g_imageDataSize = 0;
+    FileImageLoader loader;
+    auto result = loader.BuildImageData(rsData);
+    EXPECT_EQ(result, nullptr);
+
+    Testing::g_imageDataSize = TEST_SIZE;
+    result = loader.BuildImageData(rsData);
+    EXPECT_NE(result, nullptr);
+}
+
+/**
+ * @tc.name: LoadImageData
+ * @tc.desc: Test for LoadImageData
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImageLoaderTest, LoadImageData, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. create unique_ptr buffer.
+     */
+    auto bufferSize = 1;
+    std::unique_ptr<uint8_t[]> buffer = std::make_unique<uint8_t[]>(bufferSize);
+    for (size_t i = 0; i < bufferSize; ++i) {
+        buffer[i] = static_cast<uint8_t>(i);
+    }
+    /**
+     * @tc.steps: step2. Test get GetBufferSize = 1
+     */
+    ImageSourceInfo sourceInfo(std::move(buffer), bufferSize);
+    auto bufferSizeValue = sourceInfo.GetBufferSize();
+    EXPECT_EQ(bufferSizeValue, 1);
+    /**
+     * @tc.steps: step2. Test get GetBuffer != nullptr
+     */
+    auto bufferPtr = sourceInfo.GetBuffer();
+    EXPECT_NE(bufferPtr, nullptr);
+
+    NG::ImageLoadResultInfo loadResultInfo;
+    StreamImageLoader streamImageLoader;
+    /**
+     * @tc.steps: step3. Test get imageData == nullptr
+     */
+    auto imageData = streamImageLoader.LoadImageData(ImageSourceInfo(nullptr, 0), loadResultInfo, nullptr);
+    EXPECT_EQ(imageData, nullptr);
+    /**
+     * @tc.steps: step4. Test get imageData == nullptr
+     */
+    imageData = streamImageLoader.LoadImageData(ImageSourceInfo(nullptr, 1), loadResultInfo, nullptr);
+    EXPECT_EQ(imageData, nullptr);
+    /**
+     * @tc.steps: step5. Test get imageData == nullptr
+     */
+    imageData = streamImageLoader.LoadImageData(ImageSourceInfo(""), loadResultInfo, nullptr);
+    EXPECT_EQ(imageData, nullptr);
+    /**
+     * @tc.steps: step6. Test get imageData != nullptr
+     */
+    imageData = streamImageLoader.LoadImageData(sourceInfo, loadResultInfo, nullptr);
+    EXPECT_NE(imageData, nullptr);
+}
+
+/**
+ * @tc.name: TestImageSourceInfoGetKey001
+ * @tc.desc: Test ImageSourceInfo GetKey
+ * @tc.type: FUNC
+ */
+HWTEST_F(ImageLoaderTest, TestImageSourceInfoGetKey001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. create Image Info.
+     */
+    ImageSourceInfo sourceInfo;
+    /**
+     * @tc.steps: step2. Test get cache key isSvg_=false
+     */
+    sourceInfo.isSvg_ = false;
+    auto cacheKey = sourceInfo.GetKey();
+    /**
+     * @tc.steps: step2. Test get cache key isSvg_=true supportSvg2=false
+     */
+    sourceInfo.isSvg_ = true;
+    sourceInfo.SetSupportSvg2(false);
+    auto cacheKeySvg = sourceInfo.GetKey();
+    EXPECT_EQ(cacheKey, cacheKeySvg);
+    /**
+     * @tc.steps: step2. Test get cache key isSvg_=true supportSvg2=true
+     */
+    sourceInfo.SetSupportSvg2(true);
+    auto cacheKeySvg2 = sourceInfo.GetKey();
+    EXPECT_EQ(cacheKey+"supportSvg2", cacheKeySvg2);
+    /**
+     * @tc.steps: step2. Test get cache key isSvg_=true supportSvg2=false SetFillColor
+     */
+    sourceInfo.SetFillColor(Color::BLUE);
+    auto cacheKeyFillColor = sourceInfo.GetKey();
+    EXPECT_NE(cacheKeySvg2, cacheKeyFillColor);
+}
+} // namespace OHOS::Ace

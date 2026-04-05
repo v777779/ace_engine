@@ -1,0 +1,106 @@
+/*
+* Copyright (c) 2025 Huawei Device Co., Ltd.
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
+#include "core/components_ng/pattern/custom/custom_node_static.h"
+
+#include "base/log/ace_scoring_log.h"
+#include "bridge/arkts_frontend/arkts_frontend.h"
+#include "core/common/container.h"
+#include "core/common/frontend.h"
+#include "core/components_ng/pattern/custom/custom_node.h"
+#include "core/components_ng/pattern/stage/page_pattern.h"
+
+namespace OHOS::Ace::NG {
+CustomNode* CustomNodeStatic::ConstructCustomNode(int32_t id, NodeKoalaInfo&& info)
+{
+    auto customNode = NG::CustomNode::CreateCustomNode(id, info.jsViewName);
+    customNode->IncRefCount();
+
+    customNode->SetOnPageShowFunc(std::move(info.onPageShowFunc));
+    customNode->SetOnPageHideFunc(std::move(info.onPageHideFunc));
+    customNode->SetOnBackPressedFunc(std::move(info.onBackPressedFunc));
+    customNode->SetPageTransitionFunc(std::move(info.pageTransitionFunc));
+    customNode->SetOnCleanupFunc(std::move(info.onCleanupFunc));
+    customNode->SetOnDumpInspectorFunc(std::move(info.onDumpInspectorFunc));
+
+    return AceType::RawPtr(customNode);
+}
+
+CustomMeasureLayoutNode* CustomNodeStatic::ConstructCustomNode(int32_t id,
+    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onMeasureSize,
+    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& onPlaceChildren,
+    std::function<void(NG::LayoutWrapper* layoutWrapper)>&& updateParamFunc)
+{
+    auto customNode = NG::CustomMeasureLayoutNode::CreateCustomMeasureLayoutNode(id, "");
+    customNode->IncRefCount();
+    if (onMeasureSize) {
+        auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
+        customMeasureLayoutNode->SetMeasureFunction(std::move(onMeasureSize));
+    } else {
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onMeasureSize is nullptr");
+    }
+
+    if (onPlaceChildren) {
+        auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
+        customMeasureLayoutNode->SetLayoutFunction(std::move(onPlaceChildren));
+    } else {
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "onPlaceChildren is nullptr");
+    }
+
+    if (updateParamFunc) {
+        auto customMeasureLayoutNode = AceType::DynamicCast<NG::CustomMeasureLayoutNode>(customNode);
+        customMeasureLayoutNode->SetUpdateParamFunc(std::move(updateParamFunc));
+    } else {
+        TAG_LOGI(AceLogTag::ACE_NATIVE_NODE, "updateParamFunc is nullptr");
+    }
+    return AceType::RawPtr(customNode);
+}
+
+SizeF CustomNodeStatic::DidDefaultMeasure(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode)
+{
+    CHECK_NULL_RETURN(frameNode, NG::SizeF());
+    auto layoutWrapper = AceType::DynamicCast<OHOS::Ace::NG::LayoutWrapper>(frameNode);
+    CHECK_NULL_RETURN(layoutWrapper, NG::SizeF());
+    // use normal measure step.
+    auto layoutProperty = layoutWrapper->GetLayoutProperty();
+    CHECK_NULL_RETURN(layoutProperty, NG::SizeF());
+    auto layoutConstraint = layoutProperty->CreateChildConstraint();
+    
+    const auto& children = layoutWrapper->GetAllChildrenWithBuild();
+    int32_t index = 0;
+    frameNode->FireOnUpdateParam(AceType::RawPtr(layoutWrapper));
+    for (auto&& child : children) {
+        child->Measure(layoutConstraint);
+        auto size = child->GetGeometryNode()->GetFrameSize();
+        frameNode->UpdateSize(index, size);
+        index++;
+    }
+    NG::BoxLayoutAlgorithm::PerformMeasureSelf(AceType::RawPtr(layoutWrapper));
+    auto geometryNode = frameNode->GetGeometryNode();
+    CHECK_NULL_RETURN(geometryNode, NG::SizeF());
+    return geometryNode->GetFrameSize();
+}
+
+void CustomNodeStatic::DidDefaultLayout(const RefPtr<OHOS::Ace::NG::CustomMeasureLayoutNode>& frameNode)
+{
+    CHECK_NULL_VOID(frameNode);
+    auto layoutWrapper = AceType::DynamicCast<OHOS::Ace::NG::LayoutWrapper>(frameNode);
+    CHECK_NULL_VOID(layoutWrapper);
+    NG::BoxLayoutAlgorithm::PerformLayout(AceType::RawPtr(layoutWrapper));
+    for (auto&& child : layoutWrapper->GetAllChildrenWithBuild()) {
+        child->Layout();
+    }
+}
+} // namespace OHOS::Ace::NG

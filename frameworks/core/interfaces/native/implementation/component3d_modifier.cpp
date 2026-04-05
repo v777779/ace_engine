@@ -1,0 +1,299 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/utility/converter.h"
+#if defined(MODEL_COMPONENT_SUPPORTED)
+#include "core/components_ng/pattern/model/model_view_ng.h"
+#endif
+#include "core/interfaces/native/utility/validators.h"
+#include "arkoala_api_generated.h"
+
+namespace OHOS::Ace::NG {
+namespace Converter {
+#if defined(MODEL_COMPONENT_SUPPORTED)
+template<>
+void AssignCast(std::optional<OHOS::Render3D::SurfaceType>& dst, const Ark_ModelType& src)
+{
+    switch (src) {
+        case ARK_MODEL_TYPE_TEXTURE: dst = OHOS::Render3D::SurfaceType::SURFACE_TEXTURE; break;
+        case ARK_MODEL_TYPE_SURFACE: dst = OHOS::Render3D::SurfaceType::SURFACE_WINDOW; break;
+        default: LOGE("Unexpected enum value in Ark_ModelType: %{public}d", src);
+    }
+}
+#endif // MODEL_COMPONENT_SUPPORTED
+} // Converter
+} // OHOS::Ace::NG
+
+namespace OHOS::Ace::NG::GeneratedModifier {
+namespace Component3DModifier {
+Ark_NativePointer ConstructImpl(Ark_Int32 id,
+                                Ark_Int32 flags)
+{
+#ifdef MODEL_COMPONENT_SUPPORTED
+    auto frameNode = ModelViewNG::CreateFrameNode(id);
+    CHECK_NULL_RETURN(frameNode, nullptr);
+    frameNode->IncRefCount();
+    return AceType::RawPtr(frameNode);
+#else
+    return nullptr;
+#endif // MODEL_COMPONENT_SUPPORTED
+}
+} // Component3DModifier
+
+#if defined(MODEL_COMPONENT_SUPPORTED)
+namespace {
+static const std::regex MODEL_RES_ID_REGEX(R"(^resource://\w+/([0-9]+)\.\w+$)", std::regex::icase);
+static const std::regex MODEL_APP_RES_PATH_REGEX(R"(^resource://RAWFILE/(.*)$)");
+static const std::regex MODEL_APP_RES_ID_REGEX(R"(^resource://.*/([0-9]+)\.\w+$)", std::regex::icase);
+static const std::regex MODEL_RES_NAME_REGEX(R"(^resource://.*/(\w+)\.\w+$)", std::regex::icase);
+static constexpr uint32_t MODEL_RESOURCE_MATCH_SIZE = 2;
+bool GetResourceId(const std::string& uri, uint32_t& resId)
+{
+    std::smatch matches;
+    if (std::regex_match(uri, matches, MODEL_RES_ID_REGEX) && matches.size() == MODEL_RESOURCE_MATCH_SIZE) {
+        resId = static_cast<uint32_t>(std::stoul(matches[1].str()));
+        return true;
+    }
+
+    std::smatch appMatches;
+    if (std::regex_match(uri, appMatches, MODEL_APP_RES_ID_REGEX) && appMatches.size() == MODEL_RESOURCE_MATCH_SIZE) {
+        resId = static_cast<uint32_t>(std::stoul(appMatches[1].str()));
+        return true;
+    }
+    return false;
+}
+bool GetResourceId(const std::string& uri, std::string& path)
+{
+    std::smatch matches;
+    if (std::regex_match(uri, matches, MODEL_APP_RES_PATH_REGEX) && matches.size() == MODEL_RESOURCE_MATCH_SIZE) {
+        path = matches[1].str();
+        return true;
+    }
+    return false;
+}
+bool GetResourceName(const std::string& uri, std::string& resName)
+{
+    std::smatch matches;
+    if (std::regex_match(uri, matches, MODEL_RES_NAME_REGEX) && matches.size() == MODEL_RESOURCE_MATCH_SIZE) {
+        resName = matches[1].str();
+        return true;
+    }
+    return false;
+}
+bool SetOhosPath(const std::string& uri, std::string& ohosPath)
+{
+    if (GetResourceId(uri, ohosPath)) {
+        ohosPath = "OhosRawFile://" + ohosPath;
+        return true;
+    }
+
+    uint32_t resId = 0;
+    if (GetResourceId(uri, resId)) {
+        ohosPath = "OhosRawFile://" + std::to_string(resId);
+        return true;
+    }
+
+    if (GetResourceName(uri, ohosPath)) {
+        ohosPath = "OhosRawFile://" + ohosPath;
+        return true;
+    }
+    // set default format as system resource
+    ohosPath = "file://" + uri;
+    return false;
+}
+} // namespace
+#endif // MODEL_COMPONENT_SUPPORTED
+
+namespace Component3DInterfaceModifier {
+void SetComponent3DOptionsImpl(Ark_NativePointer node,
+                               const Opt_SceneOptions* sceneOptions)
+{
+#ifdef MODEL_COMPONENT_SUPPORTED
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(sceneOptions);
+    Render3D::SurfaceType surfaceType = OHOS::Render3D::SurfaceType::SURFACE_TEXTURE;
+    auto options = Converter::OptConvert<Ark_SceneOptions>(*sceneOptions);
+    if (options) {
+        auto modelOpt = Converter::OptConvert<Ark_ModelType>(options.value().modelType);
+        if (modelOpt) {
+            auto st = Converter::OptConvert<OHOS::Render3D::SurfaceType>(modelOpt.value());
+            if (st) {
+                surfaceType = st.value();
+            }
+        }
+        Converter::VisitUnion(
+            options.value().scene,
+            [frameNode, surfaceType](const Ark_ResourceStr& value0) {
+                std::string bundleName = Converter::Convert<std::string>(value0.value1.bundleName);
+                std::string moduleName = Converter::Convert<std::string>(value0.value1.moduleName);
+                ModelViewNG::SetModelViewContext(frameNode, { bundleName, moduleName, surfaceType });
+                if (auto srcPath = Converter::OptConvert<std::string>(value0)) {
+                    std::string ohosPath("");
+                    SetOhosPath(srcPath.value(), ohosPath);
+                    ModelViewNG::SetModelSource(frameNode, ohosPath);
+                }
+            },
+            [frameNode, surfaceType](const Ark_Scene& value) {
+#if defined(KIT_3D_ENABLE)
+                std::string bundleName;
+                std::string moduleName;
+                auto sceneAdapter =
+                    value ? *(reinterpret_cast<std::shared_ptr<Render3D::ISceneAdapter> *>(value)) : nullptr;
+                ModelViewNG::SetModelViewContext(frameNode, { bundleName, moduleName, surfaceType, sceneAdapter });
+#endif
+            },
+            [frameNode, surfaceType]() {
+                ModelViewNG::SetModelViewContext(frameNode, { "", "", surfaceType });
+            });
+    }
+#endif
+}
+} // Component3DInterfaceModifier
+namespace Component3DAttributeModifier {
+void SetEnvironmentImpl(Ark_NativePointer node,
+                        const Opt_ResourceStr* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto srcPath = Converter::OptConvert<std::string>(*value);
+    if (srcPath) {
+        std::string ohosPath("");
+        SetOhosPath(srcPath.value(), ohosPath);
+        ModelViewNG::SetBackground(frameNode, ohosPath);
+    }
+#endif
+}
+void SetShaderImpl(Ark_NativePointer node,
+                   const Opt_ResourceStr* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto srcPath = Converter::OptConvert<std::string>(*value);
+    if (srcPath) {
+        std::string ohosPath("");
+        SetOhosPath(srcPath.value(), ohosPath);
+        ModelViewNG::SetShader(frameNode, ohosPath);
+    }
+#endif
+}
+void SetShaderImageTextureImpl(Ark_NativePointer node,
+                               const Opt_ResourceStr* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto srcPath = Converter::OptConvert<std::string>(*value);
+    if (srcPath) {
+        std::string ohosPath("");
+        SetOhosPath(srcPath.value(), ohosPath);
+        ModelViewNG::AddShaderImageTexture(frameNode, ohosPath);
+    }
+#endif
+}
+void SetShaderInputBufferImpl(Ark_NativePointer node,
+                              const Opt_Array_F64* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto shaderInputVec = Converter::OptConvert<std::vector<float>>(*value);
+    if (!shaderInputVec) {
+        // no need reset value
+        return;
+    }
+    uint32_t length = shaderInputVec->size();
+    auto buffer = std::make_shared<OHOS::Render3D::ShaderInputBuffer>();
+    if (!buffer->Alloc(length)) {
+        return;
+    }
+    for (uint32_t i = 0; i < length; i++) {
+        buffer->Update(shaderInputVec->at(i), i);
+    }
+    ModelViewNG::AddShaderInputBuffer(frameNode, buffer);
+#endif
+}
+void SetRenderWidthImpl(Ark_NativePointer node,
+                        const Opt_Dimension* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto convValue = Converter::OptConvert<Dimension>(*value);
+    Validator::ValidatePositive(convValue);
+    ModelViewNG::SetRenderWidth(frameNode, convValue);
+#endif
+}
+void SetRenderHeightImpl(Ark_NativePointer node,
+                         const Opt_Dimension* value)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(value);
+    auto convValue = Converter::OptConvert<Dimension>(*value);
+    Validator::ValidatePositive(convValue);
+    ModelViewNG::SetRenderHeight(frameNode, convValue);
+#endif
+}
+void SetCustomRenderImpl(Ark_NativePointer node,
+                         const Opt_ResourceStr* uri,
+                         const Opt_Boolean* selfRenderUpdate)
+{
+#if defined(MODEL_COMPONENT_SUPPORTED)
+    auto frameNode = reinterpret_cast<FrameNode *>(node);
+    CHECK_NULL_VOID(frameNode);
+    CHECK_NULL_VOID(uri);
+    CHECK_NULL_VOID(selfRenderUpdate);
+    auto update = Converter::OptConvert<bool>(*selfRenderUpdate);
+    if (!update) {
+        // no need reset value
+        return;
+    }
+    auto uriString = Converter::OptConvert<std::string>(*uri); //uriString.value_or("")
+    if (uriString) {
+        std::string ohosPath("");
+        SetOhosPath(uriString.value(), ohosPath);
+        auto customRender = std::make_shared<OHOS::Render3D::CustomRenderDescriptor>(ohosPath, *update);
+        ModelViewNG::AddCustomRender(frameNode, customRender);
+    }
+#endif
+}
+} // Component3DAttributeModifier
+const GENERATED_ArkUIComponent3DModifier* GetComponent3DModifier()
+{
+    static const GENERATED_ArkUIComponent3DModifier ArkUIComponent3DModifierImpl {
+        Component3DModifier::ConstructImpl,
+        Component3DInterfaceModifier::SetComponent3DOptionsImpl,
+        Component3DAttributeModifier::SetEnvironmentImpl,
+        Component3DAttributeModifier::SetShaderImpl,
+        Component3DAttributeModifier::SetShaderImageTextureImpl,
+        Component3DAttributeModifier::SetShaderInputBufferImpl,
+        Component3DAttributeModifier::SetRenderWidthImpl,
+        Component3DAttributeModifier::SetRenderHeightImpl,
+        Component3DAttributeModifier::SetCustomRenderImpl,
+    };
+    return &ArkUIComponent3DModifierImpl;
+}
+
+}

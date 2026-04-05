@@ -1,0 +1,21 @@
+{
+    "include": [
+        "types/*.d.ts"
+    ],
+    "files": [
+        "src/jsMock.ts"
+    ],
+    "compilerOptions": {
+        "module": "ES2020",
+        "target": "ES2020",
+        "outDir": "dist",
+        "rootDir": "src",
+        "declaration": true,
+        "noEmitOnError": true,
+        "experimentalDecorators": true,
+        "lib": [
+            "ES2020"
+        ],
+        "removeComments": true
+    }
+}

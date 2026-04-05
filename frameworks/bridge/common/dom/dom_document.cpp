@@ -1,0 +1,353 @@
+/*
+ * Copyright (c) 2021-2022 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "frameworks/bridge/common/dom/dom_document.h"
+
+#include "base/log/event_report.h"
+#include "compatible/components/component_loader.h"
+#include "compatible/components/tab_bar/modifier/tab_modifier_api.h"
+#include "core/common/dynamic_module_helper.h"
+#include "frameworks/bridge/common/dom/dom_button.h"
+#include "frameworks/bridge/common/dom/dom_calendar.h"
+#include "frameworks/bridge/common/dom/dom_dialog.h"
+#include "frameworks/bridge/common/dom/dom_div.h"
+#include "frameworks/bridge/common/dom/dom_divider.h"
+#include "frameworks/bridge/common/dom/dom_form.h"
+#include "frameworks/bridge/common/dom/dom_image.h"
+#include "frameworks/compatible/components/label/modifier/label_modifier.h"
+#include "frameworks/bridge/common/dom/dom_navigation_bar.h"
+#include "frameworks/bridge/common/dom/dom_panel.h"
+#include "frameworks/bridge/common/dom/dom_progress.h"
+#ifdef WEB_SUPPORTED
+#include "frameworks/bridge/common/dom/dom_rich_text.h"
+#endif
+#include "frameworks/bridge/common/dom/dom_slider.h"
+#include "frameworks/bridge/common/dom/dom_stack.h"
+#if defined(XCOMPONENT_SUPPORTED)
+#include "frameworks/bridge/common/dom/dom_xcomponent.h"
+#endif
+#ifndef WEARABLE_PRODUCT
+#include "frameworks/bridge/common/dom/dom_menu.h"
+#include "frameworks/bridge/common/dom/dom_option.h"
+#include "frameworks/bridge/common/utils/utils.h"
+#include "frameworks/bridge/common/dom/dom_popup.h"
+#include "frameworks/bridge/common/dom/dom_select.h"
+#if !defined(PREVIEW)
+#ifdef WEB_SUPPORTED
+#include "frameworks/bridge/common/dom/dom_web.h"
+#endif
+#endif
+#endif
+
+namespace OHOS::Ace::Framework {
+RefPtr<PixelMap> DOMDocument::pixelMap_;
+int32_t DOMDocument::pixelMapOffsetX_ = 0;
+int32_t DOMDocument::pixelMapOffsetY_ = 0;
+namespace {
+
+// avoid same with root node id
+constexpr int32_t PROXY_ID = 10000000;
+const char PROXY_PREFIX[] = "proxy_";
+const int32_t ROOT_STACK_ID = -1;
+const char ROOT_STACK_NAME[] = "ComposedStack";
+
+template<class T>
+RefPtr<DOMNode> DOMNodeCreator(NodeId nodeId, const std::string& tag, int32_t)
+{
+    return AceType::MakeRefPtr<T>(nodeId, tag);
+}
+
+template<class T>
+RefPtr<DOMNode> DOMListItemCreator(NodeId nodeId, const std::string& tag, int32_t itemIndex)
+{
+    return AceType::MakeRefPtr<T>(nodeId, tag, itemIndex);
+}
+
+const ArkUIInnerTabBarModifier* GetTabBarInnerModifier()
+{
+    static const ArkUIInnerTabBarModifier* cachedModifier = nullptr;
+    if (cachedModifier == nullptr) {
+        auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("tab-bar");
+        CHECK_NULL_RETURN(loader, nullptr);
+        cachedModifier = reinterpret_cast<const ArkUIInnerTabBarModifier*>(loader->GetCustomModifier());
+    }
+    return cachedModifier;
+}
+} // namespace
+
+DOMDocument::~DOMDocument()
+{
+    CHECK_RUN_ON(UI);
+}
+
+RefPtr<DOMNode> DOMDocument::CreateNodeWithId(const std::string& tag, NodeId nodeId, int32_t itemIndex)
+{
+    static const LinearMapNode<RefPtr<DOMNode> (*)(NodeId, const std::string&, int32_t)> domNodeCreators[] = {
+        { DOM_NODE_TAG_BUTTON, &DOMNodeCreator<DOMButton> },
+        { DOM_NODE_TAG_CALENDAR, &DOMNodeCreator<DomCalendar> },
+        { DOM_NODE_TAG_DIALOG, &DOMNodeCreator<DOMDialog> },
+        { DOM_NODE_TAG_DIV, &DOMNodeCreator<DOMDiv> },
+        { DOM_NODE_TAG_DIVIDER, &DOMNodeCreator<DOMDivider> },
+        { DOM_NODE_TAG_FORM, &DOMNodeCreator<DOMForm> },
+        { DOM_NODE_TAG_IMAGE, &DOMNodeCreator<DOMImage> },
+#ifndef WEARABLE_PRODUCT
+        { DOM_NODE_TAG_MENU, &DOMNodeCreator<DOMMenu> },
+#endif
+        { DOM_NODE_TAG_NAVIGATION_BAR, &DOMNodeCreator<DomNavigationBar> },
+#ifndef WEARABLE_PRODUCT
+        { DOM_NODE_TAG_OPTION, &DOMNodeCreator<DOMOption> },
+        { DOM_NODE_TAG_PANEL, &DOMNodeCreator<DOMPanel> },
+#endif
+#ifndef WEARABLE_PRODUCT
+        { DOM_NODE_TAG_POPUP, &DOMNodeCreator<DOMPopup> },
+#endif
+        { DOM_NODE_TAG_PROGRESS, &DOMNodeCreator<DOMProgress> },
+#ifdef WEB_SUPPORTED
+        { DOM_NODE_TAG_RICH_TEXT, &DOMNodeCreator<DOMRichText> },
+#endif
+#ifndef WEARABLE_PRODUCT
+        { DOM_NODE_TAG_SELECT, &DOMNodeCreator<DOMSelect> },
+#endif
+        { DOM_NODE_TAG_SLIDER, &DOMNodeCreator<DOMSlider> },
+        { DOM_NODE_TAG_SPAN, &DOMNodeCreator<DOMSpan> },
+        { DOM_NODE_TAG_STACK, &DOMNodeCreator<DOMStack> },
+        { DOM_NODE_TAG_TEXT, &DOMNodeCreator<DOMText> },
+#ifndef WEARABLE_PRODUCT
+#ifdef WEB_SUPPORTED
+        { DOM_NODE_TAG_WEB, &DOMNodeCreator<DOMWeb> },
+#endif
+#endif
+#ifdef XCOMPONENT_SUPPORTED
+        { DOM_NODE_TAG_XCOMPONENT, &DOMNodeCreator<DOMXComponent> },
+#endif
+    };
+
+    RefPtr<DOMNode> domNode;
+    int64_t creatorIndex = BinarySearchFindIndex(domNodeCreators, ArraySize(domNodeCreators), tag.c_str());
+    if (creatorIndex >= 0) {
+        domNode = domNodeCreators[creatorIndex].value(nodeId, tag, itemIndex);
+    }
+    if (!domNode) {
+        auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName(tag.c_str());
+        if (loader) {
+            LOGI("DynamicModuleHelper getLoaderByName success, tag = %{public}s", tag.c_str());
+            domNode = loader->CreateDomNode(nodeId, tag);
+            if (!domNode) {
+                domNode = loader->CreateDomNodeWithItemIndex(nodeId, tag, itemIndex);
+            }
+        }
+        if (!domNode) {
+#if defined(PREVIEW)
+            if (std::strcmp(tag.c_str(), DOM_NODE_TAG_WEB) == 0 || std::strcmp(tag.c_str(), DOM_NODE_TAG_XCOMPONENT) == 0 ||
+                std::strcmp(tag.c_str(), DOM_NODE_TAG_RICH_TEXT) == 0) {
+                LOGW("[Engine Log] Unable to use the %{public}s component in the Previewer. Perform this operation on the "
+                    "emulator or a real device instead.",
+                    tag.c_str());
+            }
+#endif
+            return nullptr;
+        }
+    }
+
+    auto result = domNodes_.try_emplace(nodeId, domNode);
+    if (!result.second) {
+        return nullptr;
+    }
+    domNode->SetIsRootNode(nodeId == rootNodeId_);
+    domNode->SetPageId(rootNodeId_ - DOM_ROOT_NODE_ID_BASE);
+    return domNode;
+}
+
+RefPtr<DOMProxy> DOMDocument::CreateProxyNodeWithId(const std::string& tag, NodeId nodeId)
+{
+    // generate proxy tag and id, proxy id marked different from root tag id
+    std::string proxyTag = std::string(PROXY_PREFIX) + tag;
+    NodeId proxyId = PROXY_ID + nodeId;
+    auto proxy = AceType::MakeRefPtr<DOMProxy>(proxyId, proxyTag);
+    auto result = domNodes_.try_emplace(proxyId, proxy);
+    if (!result.second) {
+        return nullptr;
+    }
+    proxyRelatedNode_.emplace(nodeId);
+    return proxy;
+}
+
+RefPtr<DOMNode> DOMDocument::GetDOMNodeById(NodeId nodeId) const
+{
+    const auto itNode = domNodes_.find(nodeId);
+    if (itNode == domNodes_.end()) {
+        LOGI("the node is not in the map");
+        return nullptr;
+    }
+    return itNode->second;
+}
+
+void DOMDocument::RemoveNodes(const RefPtr<DOMNode>& node, bool scheduleUpdate)
+{
+    if (!node) {
+        return;
+    }
+    auto children = node->GetChildList();
+    for (auto it = children.begin(); it != children.end();) {
+        RemoveNodes(*it++, scheduleUpdate);
+    }
+    auto parentId = node->GetParentId();
+    RefPtr<DOMNode> parentNode;
+    if (parentId != -1) {
+        parentNode = GetDOMNodeById(parentId);
+        if (parentNode) {
+            parentNode->RemoveNode(node);
+        }
+    }
+    // Fixed positioned node and navigation bar node need to delete the relative proxy node.
+    if (node->GetPosition() == PositionType::PTFIXED && rootStackComponent_) {
+        rootStackComponent_->RemoveChild(node->GetRootComponent());
+        auto context = node->GetPipelineContext().Upgrade();
+        if (context && scheduleUpdate) {
+            context->ScheduleUpdate(rootComposedStack_);
+        }
+        auto proxyId = node->GetNodeId() + PROXY_ID;
+        auto proxy = GetDOMNodeById(proxyId);
+        if (proxy) {
+            if (parentNode) {
+                parentNode->RemoveNode(proxy);
+            }
+            domNodes_.erase(proxyId);
+            proxyRelatedNode_.erase(node->GetNodeId());
+        }
+    }
+    if (node->GetTag() == DOM_NODE_TAG_NAVIGATION_BAR && rootStackComponent_ &&
+        rootStackComponent_->HasNavigationBar()) {
+        auto rootColumn = AceType::DynamicCast<ColumnComponent>(rootStackComponent_->GetChildren().front());
+        if (rootColumn) {
+            rootColumn->RemoveChild(node->GetRootComponent());
+            auto proxyId = node->GetNodeId() + PROXY_ID;
+            auto proxy = GetDOMNodeById(proxyId);
+            if (proxy) {
+                if (parentNode) {
+                    parentNode->RemoveNode(proxy);
+                }
+                domNodes_.erase(proxyId);
+                proxyRelatedNode_.erase(node->GetNodeId());
+            }
+        }
+    }
+    domNodes_.erase(node->GetNodeId());
+}
+
+void DOMDocument::AddNodeWithId(const std::string& key, const RefPtr<DOMNode>& domNode)
+{
+    nodeWithIdVec_.emplace_back(key, domNode);
+}
+
+void DOMDocument::AddNodeWithTarget(const std::string& key, const RefPtr<DOMNode>& domNode)
+{
+    // Always save only one (the last) 'target' dom node
+    for (auto iter = nodeWithTargetVec_.begin(); iter != nodeWithTargetVec_.end();) {
+        if (iter->first == key) {
+            iter = nodeWithTargetVec_.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+    nodeWithTargetVec_.emplace_back(key, domNode);
+}
+
+void DOMDocument::HandleComponentPostBinding()
+{
+    for (auto iterTarget = nodeWithTargetVec_.begin(); iterTarget != nodeWithTargetVec_.end();) {
+        auto targetNode = iterTarget->second.Upgrade();
+        if (!targetNode) {
+            LOGW("DOM Node with target %{public}s has been invalid", iterTarget->first.c_str());
+            iterTarget = nodeWithTargetVec_.erase(iterTarget);
+            continue;
+        }
+
+        for (auto iterId = nodeWithIdVec_.begin(); iterId != nodeWithIdVec_.end();) {
+            auto idNode = iterId->second.Upgrade();
+            if (!idNode) {
+                LOGW("DOM Node with id %{public}s has been invalid, add targetNode fail", iterId->first.c_str());
+                iterId = nodeWithIdVec_.erase(iterId);
+                continue;
+            }
+
+            if (iterTarget->first != iterId->first) {
+                ++iterId;
+                continue;
+            }
+
+            auto component = targetNode->GetSpecializedComponent();
+            if (AceType::InstanceOf<TouchListenerComponent>(component)) {
+                auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("label");
+                CHECK_NULL_VOID(loader);
+                auto* modifier = reinterpret_cast<const ArkUILabelModifierCompatible*>(loader->GetCustomModifier());
+                CHECK_NULL_VOID(modifier);
+                modifier->setTargetNode(targetNode, idNode);
+#ifndef WEARABLE_PRODUCT
+            } else if (AceType::InstanceOf<PopupComponent>(component)) {
+                auto popupNode = AceType::DynamicCast<DOMPopup>(targetNode);
+                if (popupNode) {
+                    // DOMPopup bind node with ID node
+                    popupNode->BindIdNode(idNode);
+                }
+            } else if (AceType::InstanceOf<MenuComponent>(component)) {
+                auto menuNode = AceType::DynamicCast<DOMMenu>(targetNode);
+                if (menuNode) {
+                    // DOMMenu bind node with ID node
+                    menuNode->BindIdNode(idNode);
+                }
+            } else {
+                if (auto modifier = GetTabBarInnerModifier()) {
+                    modifier->bindToTabs(targetNode, idNode);
+                }
+#endif
+            }
+            ++iterId;
+        }
+        ++iterTarget;
+    }
+}
+
+void DOMDocument::HandlePageLoadFinish()
+{
+    for (auto iter : domNodes_) {
+        if (iter.second) {
+            iter.second->OnPageLoadFinish();
+        }
+    }
+}
+
+void DOMDocument::SetUpRootComponent(const RefPtr<DOMNode>& node)
+{
+    if (!node) {
+        EventReport::SendComponentException(ComponentExcepType::SET_ROOT_DOM_NODE_ERR);
+        return;
+    }
+    std::list<RefPtr<Component>> stackChildren { node->GetRootComponent() };
+    rootStackComponent_ = AceType::MakeRefPtr<StackComponent>(
+        Alignment::TOP_LEFT, StackFit::INHERIT, Overflow::OBSERVABLE, stackChildren);
+    auto context = pipelineContext_.Upgrade();
+    if (context && !context->IsFullScreenModal()) {
+        rootStackComponent_->SetMainStackSize(MainStackSize::MIN);
+        rootStackComponent_->SetStackFit(StackFit::FIRST_CHILD);
+    } else {
+        rootStackComponent_->SetMainStackSize(MainStackSize::MAX);
+    }
+    rootComposedStack_ =
+        AceType::MakeRefPtr<ComposedComponent>(std::to_string(ROOT_STACK_ID - rootNodeId_), ROOT_STACK_NAME);
+    rootComposedStack_->SetChild(rootStackComponent_);
+}
+
+} // namespace OHOS::Ace::Framework

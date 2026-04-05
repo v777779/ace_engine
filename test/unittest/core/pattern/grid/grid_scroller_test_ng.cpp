@@ -1,0 +1,1132 @@
+/*
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "grid_test_ng.h"
+#include "core/components_ng/pattern/scroll/scroll_edge_effect.h"
+#include "test/mock/interfaces/inner_api/ui_session/mock_ui_session_manager.h"
+#include "test/mock/frameworks/core/animation/mock_animation_manager.h"
+#include "test/mock/frameworks/core/common/mock_resource_adapter_v2.h"
+
+namespace OHOS::Ace::NG {
+class GridScrollerTestNg : public GridTestNg, public testing::WithParamInterface<bool> {};
+
+/**
+ * @tc.name: ScrollToIndex_Align001
+ * @tc.desc: Test ScrollToIndex with ScrollAlign::START
+ * @tc.desc: Scroll to (first/inView/outOfView/last) item (with/without) animation
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Align001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    // Scroll to the first item
+    bool smooth = GetParam();
+    ScrollAlign align = ScrollAlign::START;
+    ScrollToIndex(0, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    // Scroll to the first item in row in view
+    ScrollToIndex(2, smooth, align);
+    EXPECT_TRUE(TickPosition(-100.0f));
+
+    // Scroll to the last item in row in view
+    ScrollToIndex(5, smooth, align);
+    EXPECT_TRUE(TickPosition(-200.0f));
+
+    // Scroll to the item out of view
+    ScrollToIndex(12, smooth, align);
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    // Scroll back
+    ScrollToIndex(3, smooth, align);
+    EXPECT_TRUE(TickPosition(-100.0f));
+
+    // Scroll with invalid index
+    ScrollToIndex(-100, smooth, align);
+    EXPECT_TRUE(TickPosition(-100.0f));
+    ScrollToIndex(100, smooth, align);
+    EXPECT_TRUE(TickPosition(-100.0f));
+
+    // Scroll to the last item
+    ScrollToIndex(LAST_ITEM, smooth, align);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-100.0f));
+        EXPECT_FALSE(pattern_->IsAtBottom());
+    } else {
+        EXPECT_TRUE(TickPosition(-600.0f));
+        EXPECT_TRUE(pattern_->IsAtBottom());
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Align002
+ * @tc.desc: Test ScrollToIndex with ScrollAlign::CENTER
+ * @tc.desc: Scroll to (first/inView/outOfView/last) item (with/without) animation
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Align002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    // Scroll to the first item
+    bool smooth = GetParam();
+    ScrollAlign align = ScrollAlign::CENTER;
+    ScrollToIndex(0, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    // Scroll to the first item in row in view
+    ScrollToIndex(4, smooth, align);
+    EXPECT_TRUE(TickPosition(-50.0f));
+
+    // Scroll to the last item in row in view
+    ScrollToIndex(7, smooth, align);
+    EXPECT_TRUE(TickPosition(-150.0f));
+
+    // Scroll to the item out of view
+    ScrollToIndex(12, smooth, align);
+    EXPECT_TRUE(TickPosition(-450.0f));
+
+    // Scroll back
+    ScrollToIndex(5, smooth, align);
+    EXPECT_TRUE(TickPosition(-50.0f));
+
+    // Scroll to the last item
+    ScrollToIndex(LAST_ITEM, smooth, align);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-50.0f));
+        EXPECT_FALSE(pattern_->IsAtBottom());
+    } else {
+        EXPECT_TRUE(TickPosition(-600.0f));
+        EXPECT_TRUE(pattern_->IsAtBottom());
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Align003
+ * @tc.desc: Test ScrollToIndex with ScrollAlign::END
+ * @tc.desc: Scroll to (first/inView/outOfView/last) item (with/without) animation
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Align003, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    // Scroll to the first item
+    bool smooth = GetParam();
+    ScrollAlign align = ScrollAlign::END;
+    ScrollToIndex(0, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    // Scroll to the first item in row in view
+    ScrollToIndex(4, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+
+    // Scroll to the first item in row out of view
+    ScrollToIndex(12, smooth, align);
+    EXPECT_TRUE(TickPosition(-300.0f));
+
+    // Scroll to the last item in row out of view
+    ScrollToIndex(15, smooth, align);
+    EXPECT_TRUE(TickPosition(-400.0f));
+
+    // Scroll back
+    ScrollToIndex(5, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+
+    // Scroll to the last item
+    ScrollToIndex(LAST_ITEM, smooth, align);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(0));
+        EXPECT_FALSE(pattern_->IsAtBottom());
+    } else {
+        EXPECT_TRUE(TickPosition(-600.0f));
+        EXPECT_TRUE(pattern_->IsAtBottom());
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Align004
+ * @tc.desc: Test ScrollToIndex with ScrollAlign::AUTO
+ * @tc.desc: Scroll to (first/inView/outOfView/last) item (with/without) animation
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Align004, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    // Scroll to the first item
+    bool smooth = GetParam();
+    ScrollAlign align = ScrollAlign::AUTO;
+    ScrollToIndex(0, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    // Scroll to the first item in row in view
+    ScrollToIndex(4, smooth, align);
+    EXPECT_TRUE(TickPosition(0));
+
+    // Scroll to the first item in row out of view
+    ScrollToIndex(12, smooth, align);
+    EXPECT_TRUE(TickPosition(-300.0f));
+
+    // Scroll to the last item in row out of view
+    ScrollToIndex(15, smooth, align);
+    EXPECT_TRUE(TickPosition(-400.0f));
+
+    // Scroll back
+    ScrollToIndex(5, smooth, align);
+    EXPECT_TRUE(TickPosition(-200.0f));
+
+    // Scroll to the last item
+    ScrollToIndex(LAST_ITEM, smooth, align);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-200.0f));
+        EXPECT_FALSE(pattern_->IsAtBottom());
+    } else {
+        EXPECT_TRUE(TickPosition(-600.0f));
+        EXPECT_TRUE(pattern_->IsAtBottom());
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Gap001
+ * @tc.desc: Test ScrollToIndex with Gap
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Gap001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetColumnsGap(Dimension(COL_GAP));
+    model.SetRowsGap(Dimension(ROW_GAP));
+    CreateFixedItems(20);
+    CreateDone();
+
+    // ScrollAlign::START
+    bool smooth = GetParam();
+    ScrollToIndex(2, smooth, ScrollAlign::START);
+    EXPECT_TRUE(TickPosition(-105.0f));
+
+    // ScrollAlign::CENTER
+    ScrollToIndex(7, smooth, ScrollAlign::CENTER);
+    EXPECT_TRUE(TickPosition(-165.0f));
+
+    // ScrollAlign::END
+    ScrollToIndex(12, smooth, ScrollAlign::END);
+    EXPECT_TRUE(TickPosition(-330.0f));
+
+    // ScrollAlign::AUTO
+    ScrollToIndex(LAST_ITEM, smooth, ScrollAlign::AUTO);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-330.0f));
+        EXPECT_FALSE(pattern_->IsAtBottom());
+    } else {
+        EXPECT_TRUE(TickPosition(-645.0f));
+        EXPECT_TRUE(pattern_->IsAtBottom());
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Gap002
+ * @tc.desc: Test ScrollToIndex with big gap(lineHeight + gap > mainSize)
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Gap002, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set BIG_ROW_GAP, ScrollTo index:5, text ScrollAlign::AUTO
+     * @tc.expected: Each test scroll the correct distance
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(BIG_ROW_GAP));
+    CreateFixedItems(15);
+    CreateDone();
+
+    bool smooth = GetParam();
+    int32_t index = 5;
+    ScrollToIndex(index, smooth, ScrollAlign::AUTO);
+    EXPECT_TRUE(TickPosition(-(ITEM_MAIN_SIZE * 3 + BIG_ROW_GAP * 2 - HEIGHT)));
+    /**
+     * @tc.cases: use ScrollTo to make item 5 in the last line, ScrollTo index:5, text ScrollAlign::AUTO
+     * @tc.expected: scrollToIndex don't change grid offset
+     */
+    auto autoPosition = ITEM_MAIN_SIZE * 3 + BIG_ROW_GAP * 2 - HEIGHT + ITEM_MAIN_SIZE;
+    ScrollTo(autoPosition);
+    ScrollToIndex(index, smooth, ScrollAlign::AUTO);
+    EXPECT_TRUE(TickPosition(-autoPosition));
+}
+
+/**
+ * @tc.name: ScrollToIndex_Gap003
+ * @tc.desc: Test ScrollToIndex with big gap(lineHeight + gap > mainSize)
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Gap003, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set BIG_ROW_GAP, ScrollTo index, text each ScrollAlign::CENTER
+     * @tc.expected: Each test scroll the correct distance
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(BIG_ROW_GAP));
+    CreateFixedItems(15);
+    CreateDone();
+
+    auto endPosition = ITEM_MAIN_SIZE * 3 + BIG_ROW_GAP * 2 - HEIGHT;
+    bool smooth = GetParam();
+    ScrollToIndex(5, smooth, ScrollAlign::CENTER);
+    EXPECT_TRUE(TickPosition(-(endPosition + (HEIGHT - ITEM_MAIN_SIZE) / 2)));
+}
+
+/**
+ * @tc.name: ScrollToIndex_Gap004
+ * @tc.desc: Test ScrollToIndex with medium gap(3*lineHeight + 3*gap > mainSize)
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Gap004, TestSize.Level1)
+{
+    /**
+     * @tc.cases: Set MEDIUM_ROW_GAP and scroll to specified position, ScrollTo index, text each ScrollAlign::AUTO
+     * @tc.expected: Each test scroll the correct distance
+     */
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    model.SetRowsGap(Dimension(MEDIUM_ROW_GAP));
+    CreateFixedItems(15);
+    CreateDone();
+
+    auto position = ITEM_MAIN_SIZE + 5 * COL_GAP;
+    ScrollTo(position);
+    EXPECT_TRUE(TickPosition(-position));
+
+    bool smooth = GetParam();
+    ScrollToIndex(6, smooth, ScrollAlign::AUTO);
+    EXPECT_TRUE(TickPosition(-position));
+}
+
+/**
+ * @tc.name: ScrollToIndex_Irregular001
+ * @tc.desc: Test ScrollToIndex with irregular
+ * @tc.desc: The irregularIndexes index take up a whole row
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Irregular001, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = { 6, 1, 3, 4, 5, 0 };
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    model.SetLayoutOptions(option);
+    model.SetColumnsGap(Dimension(COL_GAP));
+    model.SetRowsGap(Dimension(ROW_GAP));
+    CreateFixedItems(10);
+    CreateDone();
+
+    bool smooth = GetParam();
+    ScrollToIndex(1, smooth, ScrollAlign::START);
+    EXPECT_TRUE(TickPosition(-105.0f));
+
+    ScrollToIndex(3, smooth, ScrollAlign::CENTER);
+    EXPECT_TRUE(TickPosition(-165.0f));
+
+    ScrollToIndex(5, smooth, ScrollAlign::END);
+    EXPECT_TRUE(TickPosition(-225.0f));
+
+    ScrollToIndex(LAST_ITEM, smooth, ScrollAlign::AUTO);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-225.0f));
+    } else {
+        EXPECT_TRUE(TickPosition(-435.0f));
+    }
+}
+
+/**
+ * @tc.name: ScrollToIndex_Irregular002
+ * @tc.desc: Test ScrollToIndex with irregular
+ * @tc.desc: OnGetIrregularSizeByIndex will set item (rows/cols) that in irregularIndexes
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_Irregular002, TestSize.Level1)
+{
+    GridLayoutOptions option;
+    option.irregularIndexes = { 6, 1, 3, 4, 5, 0 };
+    GetSizeByIndex onGetIrregularSizeByIndex = [](int32_t index) {
+        if (index == 3) {
+            return GridItemSize { 1, 2 };
+        }
+        return GridItemSize { 1, 4 };
+    };
+    option.getSizeByIndex = std::move(onGetIrregularSizeByIndex);
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr 1fr 1fr");
+    model.SetLayoutOptions(option);
+    model.SetColumnsGap(Dimension(COL_GAP));
+    model.SetRowsGap(Dimension(ROW_GAP));
+    CreateFixedItems(10);
+    CreateDone();
+
+    bool smooth = GetParam();
+    ScrollToIndex(1, smooth, ScrollAlign::START);
+    EXPECT_TRUE(TickPosition(-105.0f));
+
+    ScrollToIndex(3, smooth, ScrollAlign::CENTER);
+    EXPECT_TRUE(TickPosition(-60.0f));
+
+    ScrollToIndex(5, smooth, ScrollAlign::END);
+    EXPECT_TRUE(TickPosition(-120.0f));
+}
+
+/**
+ * @tc.name: ScrollToIndex_ExtraOffset001
+ * @tc.desc: Test ScrollToIndex with extraOffset
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToIndex_ExtraOffset001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. extraOffset < 0
+     */
+    bool smooth = GetParam();
+    float extraOffset = -100.0f;
+    ScrollToIndex(2, smooth, ScrollAlign::START, extraOffset);
+    EXPECT_TRUE(TickPosition(0));
+
+    ScrollToIndex(17, smooth, ScrollAlign::START, extraOffset);
+    FlushUITasks();
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    ScrollToIndex(17, smooth, ScrollAlign::END, extraOffset);
+    EXPECT_TRUE(TickPosition(-400.0f));
+
+    ScrollToIndex(LAST_ITEM, smooth, ScrollAlign::END, extraOffset);
+    if (smooth) {
+        EXPECT_TRUE(TickPosition(-300.0f));
+    } else {
+        EXPECT_TRUE(TickPosition(-500.0f));
+    }
+
+    /**
+     * @tc.steps: step2. Reset position
+     */
+    ScrollTo(0);
+    EXPECT_TRUE(TickPosition(0));
+
+    /**
+     * @tc.steps: step3. extraOffset > 0
+     */
+    extraOffset = 100.0f;
+    ScrollToIndex(2, smooth, ScrollAlign::START, extraOffset);
+    EXPECT_TRUE(TickPosition(-200.0f));
+
+    ScrollToIndex(2, smooth, ScrollAlign::END, extraOffset);
+    EXPECT_TRUE(TickPosition(0));
+
+    ScrollToIndex(17, smooth, ScrollAlign::END, extraOffset);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    ScrollToIndex(LAST_ITEM, smooth, ScrollAlign::END, extraOffset);
+    EXPECT_TRUE(TickPosition(-600.0f));
+}
+
+/**
+ * @tc.name: AnimateTo001
+ * @tc.desc: Test AnimateTo Function.
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, AnimateTo001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. AnimateTo the position in the scroll
+     * @tc.expected: AnimateTo the position
+     */
+    bool smooth = GetParam();
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE));
+
+    /**
+     * @tc.steps: step2. AnimateTo the position over the scroll
+     * @tc.expected: AnimateTo the bottom, can not over scroll
+     */
+    AnimateTo(Dimension(1000.0f), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    /**
+     * @tc.steps: step3. AnimateTo the top
+     * @tc.expected: AnimateTo the top
+     */
+    AnimateTo(Dimension(0), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: AnimateTo002
+ * @tc.desc: Test AnimateTo with duration animation
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, AnimateTo002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. AnimateTo the position in the scroll
+     * @tc.expected: AnimateTo the position
+     */
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 1000.0f, Curves::EASE, false);
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE));
+
+    /**
+     * @tc.steps: step2. AnimateTo the position over the scroll
+     * @tc.expected: AnimateTo the bottom, can not over scroll
+     */
+    AnimateTo(Dimension(1000.0f), 1000.0f, Curves::EASE, false);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    /**
+     * @tc.steps: step3. AnimateTo the top
+     * @tc.expected: AnimateTo the top
+     */
+    AnimateTo(Dimension(0), 1000.0f, Curves::EASE, false);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: AnimateTo003
+ * @tc.desc: Test unScrollable, can not scroll
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, AnimateTo003, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(4);
+    CreateDone();
+
+    bool smooth = GetParam();
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: AnimateTo004
+ * @tc.desc: Test scroll position greater than HEIGHT
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, AnimateTo004, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    bool smooth = GetParam();
+    AnimateTo(Dimension(ITEM_MAIN_SIZE * 5), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE * 5));
+}
+
+/**
+ * @tc.name: AnimateTo005
+ * @tc.desc: Test unScrollable, set col/row template at same time, can not scroll
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, AnimateTo005, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    model.SetRowsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_FALSE(pattern_->isConfigScrollable_);
+
+    bool smooth = GetParam();
+    AnimateTo(Dimension(ITEM_MAIN_SIZE * 5), 0, nullptr, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: ScrollBy001
+ * @tc.desc: Test ScrollBy
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollBy001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. ScrollBy the position
+     * @tc.expected: ScrollBy the position
+     */
+    bool smooth = GetParam();
+    ScrollBy(0, ITEM_MAIN_SIZE, smooth);
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE));
+
+    /**
+     * @tc.steps: step2. ScrollBy the position over the scroll
+     * @tc.expected: ScrollBy the bottom, can not over scroll
+     */
+    ScrollBy(0, 1000.0f, smooth);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    /**
+     * @tc.steps: step3. ScrollBy the position 0
+     * @tc.expected: Not scroll
+     */
+    ScrollBy(0, 0, smooth);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    /**
+     * @tc.steps: step4. ScrollBy the position to top
+     * @tc.expected: ScrollBy the top
+     */
+    ScrollBy(0, -1000.0f, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: ScrollToEdge001
+ * @tc.desc: Test ScrollToEdge
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollToEdge001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. SCROLL_BOTTOM
+     * @tc.expected: Scroll to bottom with animation
+     */
+    bool smooth = GetParam();
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, smooth);
+    EXPECT_TRUE(TickPosition(-600.0f));
+
+    /**
+     * @tc.steps: step2. SCROLL_TOP
+     * @tc.expected: Scroll to top with animation
+     */
+    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: ScrollPage001
+ * @tc.desc: Test ScrollPage
+ * @tc.type: FUNC
+ */
+HWTEST_P(GridScrollerTestNg, ScrollPage001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. ScrollPage down
+     * @tc.expected: Scroll down
+     */
+    bool smooth = GetParam();
+    ScrollPage(false, smooth);
+    EXPECT_TRUE(TickPosition(-HEIGHT));
+
+    /**
+     * @tc.steps: step2. ScrollPage up
+     * @tc.expected: Scroll up
+     */
+    ScrollPage(true, smooth);
+    EXPECT_TRUE(TickPosition(0));
+}
+
+INSTANTIATE_TEST_SUITE_P(Smooth, GridScrollerTestNg, testing::Bool());
+
+/**
+ * @tc.name: AnimateTo006
+ * @tc.desc: Test AnimateTo with duration animation, canOverScroll
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, AnimateTo006, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    model.SetEdgeEffect(EdgeEffect::SPRING, true);
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. AnimateTo the position over the scroll
+     * @tc.expected: AnimateTo the bottom, can over scroll
+     */
+    MockAnimationManager::GetInstance().SetTicks(5);
+    bool canOverScroll = true;
+    bool smooth = false;
+    AnimateTo(Dimension(1000.0f), 1000.0f, Curves::EASE, smooth, canOverScroll);
+    EXPECT_TRUE(TickPosition(-200.0f));
+    EXPECT_TRUE(TickPosition(-400.0f));
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(TickPosition(-800.0f)); // Tick doesn't advance new animations created within the same tick
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(TickPosition(-600.0f));
+    EXPECT_TRUE(TickPosition(-600.0f));
+}
+
+/**
+ * @tc.name: AnimateTo007
+ * @tc.desc: Test AnimateTo events.
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, AnimateTo007, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. When Animation is not running, call AnimateTo
+     * @tc.expected: onScrollStart event will be triggered
+     */
+    bool isTrigger = false;
+    auto onScrollStart = [&isTrigger]() { isTrigger = true; };
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    model.SetOnScrollStart(onScrollStart);
+    model.SetScrollBarMode(DisplayMode::ON);
+    CreateFixedItems(10);
+    CreateDone();
+
+    MockAnimationManager::GetInstance().SetTicks(2);
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 0, nullptr, true);
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE / 2));
+    EXPECT_TRUE(isTrigger);
+
+    /**
+     * @tc.steps: step2. When Animation is running, call AnimateTo
+     * @tc.expected: onScrollStart event will not be triggered
+     */
+    isTrigger = false; // reset val
+    pattern_->AnimateTo(ITEM_MAIN_SIZE * 2, 200.f, Curves::LINEAR, true);
+    EXPECT_FALSE(isTrigger);
+    EXPECT_TRUE(TickPosition(-125.0f));
+    EXPECT_TRUE(TickPosition(-ITEM_MAIN_SIZE * 2));
+    EXPECT_TRUE(MockAnimationManager::GetInstance().AllFinished());
+}
+
+/**
+ * @tc.name: ScrollToEdge002
+ * @tc.desc: Test ScrollToEdge
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, ScrollToEdge002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. SCROLL_BOTTOM
+     * @tc.expected: Scroll to bottom with animation
+     */
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, 200.0f);
+    EXPECT_TRUE(Position(-592.0f));
+
+    /**
+     * @tc.steps: step2. SCROLL_TOP
+     * @tc.expected: Scroll to top with animation
+     */
+    ScrollToEdge(ScrollEdgeType::SCROLL_TOP, 200.0f);
+    EXPECT_TRUE(Position(0));
+}
+
+/**
+ * @tc.name: Fling001
+ * @tc.desc: Test Fling
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, Fling001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+
+    /**
+     * @tc.steps: step1. Fling, the flingVelocity greater than 0
+     * @tc.expected: Scroll down
+     */
+    MockAnimationManager::GetInstance().SetTicks(TICK);
+    const float finalPosition = 100.f;
+    const float flingVelocity = finalPosition * FRICTION * FRICTION_SCALE;
+    Fling(flingVelocity);
+    EXPECT_TRUE(TickPosition(-finalPosition / TICK));
+    EXPECT_TRUE(TickPosition(-finalPosition));
+
+    /**
+     * @tc.steps: step2. Fling, the flingVelocity less than 0
+     * @tc.expected: Scroll up
+     */
+    Fling(-flingVelocity);
+    EXPECT_TRUE(TickPosition(-finalPosition / TICK));
+    EXPECT_TRUE(TickPosition(0));
+}
+
+/**
+ * @tc.name: GetInfo001
+ * @tc.desc: Test non-action GetCurrentOffset/GetScrollDirection/IsAtEnd/GetItemRect
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, GetInfo001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_EQ(pattern_->GetScrollableDistance(), 600.0f);
+    EXPECT_EQ(GetScrollDirection(), Axis::VERTICAL);
+    EXPECT_TRUE(IsEqual(GetCurrentOffset(), Offset()));
+    EXPECT_FALSE(IsAtEnd());
+    EXPECT_TRUE(IsEqual(GetItemRect(0), Rect(0, 0, WIDTH, ITEM_MAIN_SIZE)));
+    EXPECT_TRUE(IsEqual(GetItemRect(4), Rect()));
+
+    /**
+     * @tc.steps: step1. AnimateTo the position
+     */
+    AnimateTo(Dimension(ITEM_MAIN_SIZE), 0, nullptr, false);
+    EXPECT_TRUE(IsEqual(GetCurrentOffset(), Offset(0, ITEM_MAIN_SIZE)));
+    EXPECT_FALSE(IsAtEnd());
+    EXPECT_TRUE(IsEqual(GetItemRect(0), Rect()));
+    EXPECT_TRUE(IsEqual(GetItemRect(1), Rect(0, 0, WIDTH, ITEM_MAIN_SIZE)));
+    EXPECT_TRUE(IsEqual(GetItemRect(5), Rect()));
+
+    /**
+     * @tc.steps: step2. AnimateTo bottom
+     */
+    AnimateTo(Dimension(600.0f), 0, nullptr, false);
+    EXPECT_TRUE(IsEqual(GetCurrentOffset(), Offset(0, 600.0f)));
+    EXPECT_TRUE(IsAtEnd());
+    EXPECT_TRUE(IsEqual(GetItemRect(5), Rect()));
+    EXPECT_TRUE(IsEqual(GetItemRect(6), Rect(0, 0, WIDTH, ITEM_MAIN_SIZE)));
+}
+
+/**
+ * @tc.name: ScrollToFocusNodeIndex001
+ * @tc.desc: Test ScrollToFocusNodeIndex
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, ScrollToFocusNodeIndex001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFocusableGridItems(10, ITEM_MAIN_SIZE, ITEM_MAIN_SIZE);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Focus node outside the viewport
+     * @tc.expected: scroll to the node
+     */
+    int32_t focusNodeIndex = 6;
+    pattern_->ScrollToFocusNodeIndex(focusNodeIndex);
+    FlushUITasks();
+    RefPtr<FocusHub> focusNode = GetChildFocusHub(frameNode_, focusNodeIndex);
+    EXPECT_TRUE(focusNode->IsCurrentFocus());
+    EXPECT_TRUE(Position(0));
+
+    /**
+     * @tc.steps: step2. Focus node index not exist
+     * @tc.expected: do nothing
+     */
+    focusNodeIndex = 10;
+    pattern_->ScrollToFocusNodeIndex(focusNodeIndex);
+    FlushUITasks();
+    EXPECT_TRUE(Position(0));
+}
+
+/**
+ * @tc.name: ScrollToNode001
+ * @tc.desc: Test ScrollToNode
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, ScrollToNode001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(10);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Focus node outside the viewport
+     * @tc.expected: scroll to the node
+     */
+    int32_t focusNodeIndex = 6;
+    RefPtr<FrameNode> focusNode = GetChildFrameNode(frameNode_, focusNodeIndex);
+    pattern_->ScrollToNode(focusNode);
+    FlushUITasks();
+    EXPECT_TRUE(Position(0));
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: test OnInjectionEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridTestNg, OnInjectionEventTest001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_-> info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollForward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_-> info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollBackward"})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_NE(pattern_->info_.currentOffset_, 0);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest001
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest002, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    std::string command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, -40);
+
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    command = R"({"cmd":"scrollBackward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":1.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 40);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest002
+ * @tc.desc: test OnInjectionEvent
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest003, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr");
+    model.SetColumnsTemplate("1fr");
+    CreateDone();
+    EXPECT_FALSE(pattern_->IsScrollable());
+
+    std::string command = R"({"cmd":"scrollForward","eventId":123123,"ratio":0.1})";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+
+    command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest004
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest004, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    std::string command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -20);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrolloffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123)";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, -10);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    ScrollToEdge(ScrollEdgeType::SCROLL_BOTTOM, false);
+    EXPECT_TRUE(pattern_->IsAtBottom());
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":10})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 6);
+}
+
+/**
+ * @tc.name: OnInjectionEventTest005
+ * @tc.desc: Test CreateWithResourceObjScrollBarColor in GridModelNG
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, OnInjectionEventTest005, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr");
+    CreateFixedItems(10);
+    CreateDone();
+    EXPECT_TRUE(pattern_->IsAtTop());
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+
+    command = R"({"cmd":"scrollByOffset","eventId":123123,"offset":-20})";
+    pattern_->OnInjectionEvent(command);
+    MockAnimationManager::GetInstance().Tick();
+    FlushUITasks();
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+    EXPECT_EQ(pattern_->GetFirstIndex(), 0);
+}
+
+/**
+ * @tc.name: ReportComponentChangeEventTest001
+ * @tc.desc: ReportComponentChangeEventTest
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, ReportComponentChangeEventTest001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetRowsTemplate("1fr");
+    model.SetColumnsTemplate("1fr");
+    CreateDone();
+    EXPECT_FALSE(pattern_->IsScrollable());
+    MockUiSessionManager* mockUiSessionManager =
+        reinterpret_cast<MockUiSessionManager*>(UiSessionManager::GetInstance());
+    EXPECT_CALL(*mockUiSessionManager, GetComponentChangeEventRegistered()).WillRepeatedly(Return(true));
+
+    pattern_->ReportScroll(false, ScrollError::SCROLL_ERROR_OTHER, 123);
+    pattern_->ReportScroll(true, ScrollError::SCROLL_NO_ERROR, 123);
+    pattern_->ReportOnItemGridEvent("onReachStart");
+
+    std::string command = R"()";
+    pattern_->OnInjectionEvent(command);
+    EXPECT_EQ(pattern_->info_.currentOffset_, 0);
+}
+
+/**
+ * @tc.name: GetBindingFrameNodeId001
+ * @tc.desc: Test GetBindingFrameNodeId returns valid node id for Grid component
+ * @tc.type: FUNC
+ */
+HWTEST_F(GridScrollerTestNg, GetBindingFrameNodeId001, TestSize.Level1)
+{
+    GridModelNG model = CreateGrid();
+    model.SetColumnsTemplate("1fr 1fr");
+    CreateFixedItems(20);
+    CreateDone();
+
+    /**
+     * @tc.steps: step1. Get the binding frame node id from controller
+     * @tc.expected: The node id should match the grid frame node's id
+     */
+    auto nodeId = positionController_->GetBindingFrameNodeId();
+    EXPECT_EQ(nodeId, frameNode_->GetId());
+}
+} // namespace OHOS::Ace::NG

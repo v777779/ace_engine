@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/utility/converter.h"
+#include "arkoala_api_generated.h"
+#include "canvas_gradient_peer.h"
+namespace {
+    const auto DEFAULT_NEGATIVE_OFFSET = -1.0f;
+}
+namespace OHOS::Ace::NG::GeneratedModifier {
+namespace CanvasGradientAccessor {
+void DestroyPeerImpl(Ark_CanvasGradient peer)
+{
+    if (peer) {
+        delete peer;
+    }
+}
+Ark_CanvasGradient ConstructImpl()
+{
+    return new CanvasGradientPeer();
+}
+Ark_NativePointer GetFinalizerImpl()
+{
+    return reinterpret_cast<void *>(&DestroyPeerImpl);
+}
+void AddColorStopImpl(Ark_CanvasGradient peer,
+                      Ark_Float64 offset,
+                      const Ark_Union_String_ColorMetricsExt* color)
+{
+    CHECK_NULL_VOID(peer);
+    CHECK_NULL_VOID(color);
+    auto value = Converter::Convert<double>(offset);
+    auto colorValue = Converter::OptConvertPtr<Color>(color);
+    Converter::VisitUnion(
+        *color,
+        [value, peer](const Ark_String& opt) {
+            auto colorValue = Converter::OptConvert<Color>(opt);
+            if (!colorValue) {
+                peer->AddColorStop(DEFAULT_NEGATIVE_OFFSET, Color::TRANSPARENT);
+            } else {
+                peer->AddColorStop(value, colorValue.value());
+            }
+        },
+        [value, peer](const Ark_ColorMetricsExt& opt) {
+        },
+        []() {});
+}
+} // CanvasGradientAccessor
+const GENERATED_ArkUICanvasGradientAccessor* GetCanvasGradientAccessor()
+{
+    static const GENERATED_ArkUICanvasGradientAccessor CanvasGradientAccessorImpl {
+        CanvasGradientAccessor::DestroyPeerImpl,
+        CanvasGradientAccessor::ConstructImpl,
+        CanvasGradientAccessor::GetFinalizerImpl,
+        CanvasGradientAccessor::AddColorStopImpl,
+    };
+    return &CanvasGradientAccessorImpl;
+}
+
+}

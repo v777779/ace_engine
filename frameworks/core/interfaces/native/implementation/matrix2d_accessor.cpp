@@ -1,0 +1,193 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/utility/converter.h"
+#include "core/interfaces/native/utility/reverse_converter.h"
+#include "arkoala_api_generated.h"
+#include "matrix2d_peer_impl.h"
+
+namespace OHOS::Ace::NG::GeneratedModifier {
+namespace Matrix2DAccessor {
+const auto ERROR_VALUE = Converter::ArkValue<Opt_Float64>();
+
+void DestroyPeerImpl(Ark_Matrix2D peer)
+{
+    PeerUtils::DestroyPeer(peer);
+}
+Ark_Matrix2D ConstructImpl(const Opt_LengthMetricsUnit* unit)
+{
+    auto peer = PeerUtils::CreatePeer<Matrix2DPeer>();
+    auto optUnit = Converter::OptConvertPtr<Ace::CanvasUnit>(unit);
+    if (optUnit) {
+        peer->SetUnit(optUnit.value());
+    }
+    return peer;
+}
+Ark_NativePointer GetFinalizerImpl()
+{
+    return reinterpret_cast<void *>(&DestroyPeerImpl);
+}
+Ark_Matrix2D IdentityImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    peer->Identity();
+    return peer;
+}
+Ark_Matrix2D InvertImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, {});
+    peer->Invert();
+    return peer;
+}
+Ark_Matrix2D RotateImpl(Ark_Matrix2D peer,
+                        Ark_Float64 degree,
+                        const Opt_Float64* rx,
+                        const Opt_Float64* ry)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto angle = Converter::Convert<double>(degree);
+    auto optX = Converter::OptConvertPtr<float>(rx);
+    auto optY = Converter::OptConvertPtr<float>(ry);
+    peer->Rotate(angle, optX, optY);
+    return peer;
+}
+Ark_Matrix2D TranslateImpl(Ark_Matrix2D peer,
+                           const Opt_Float64* tx,
+                           const Opt_Float64* ty)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto optX = Converter::OptConvertPtr<float>(tx);
+    auto optY = Converter::OptConvertPtr<float>(ty);
+    peer->Translate(optX, optY);
+    return peer;
+}
+Ark_Matrix2D ScaleImpl(Ark_Matrix2D peer,
+                       const Opt_Float64* sx,
+                       const Opt_Float64* sy)
+{
+    CHECK_NULL_RETURN(peer, {});
+    auto optX = Converter::OptConvertPtr<float>(sx);
+    auto optY = Converter::OptConvertPtr<float>(sy);
+    peer->Scale(optX, optY);
+    return peer;
+}
+Opt_Float64 GetScaleXImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetScaleX());
+}
+void SetScaleXImpl(Ark_Matrix2D peer,
+                   const Opt_Float64* scaleX)
+{
+    CHECK_NULL_VOID(peer);
+    auto sx = Converter::OptConvertPtr<double>(scaleX);
+    CHECK_NULL_VOID(sx);
+    peer->SetScaleX(*sx);
+}
+Opt_Float64 GetScaleYImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetScaleY());
+}
+void SetScaleYImpl(Ark_Matrix2D peer,
+                   const Opt_Float64* scaleY)
+{
+    CHECK_NULL_VOID(peer);
+    auto sy = Converter::OptConvertPtr<double>(scaleY);
+    CHECK_NULL_VOID(sy);
+    peer->SetScaleY(*sy);
+}
+Opt_Float64 GetRotateXImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetRotateX());
+}
+void SetRotateXImpl(Ark_Matrix2D peer,
+                    const Opt_Float64* rotateX)
+{
+    CHECK_NULL_VOID(peer);
+    auto rx = Converter::OptConvertPtr<double>(rotateX);
+    CHECK_NULL_VOID(rx);
+    peer->SetRotateX(*rx);
+}
+Opt_Float64 GetRotateYImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetRotateY());
+}
+void SetRotateYImpl(Ark_Matrix2D peer,
+                    const Opt_Float64* rotateY)
+{
+    CHECK_NULL_VOID(peer);
+    auto ry = Converter::OptConvertPtr<double>(rotateY);
+    CHECK_NULL_VOID(ry);
+    peer->SetRotateY(*ry);
+}
+Opt_Float64 GetTranslateXImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetTranslateX());
+}
+void SetTranslateXImpl(Ark_Matrix2D peer,
+                       const Opt_Float64* translateX)
+{
+    CHECK_NULL_VOID(peer);
+    auto tx = Converter::OptConvertPtr<double>(translateX);
+    CHECK_NULL_VOID(tx);
+    peer->SetTranslateX(*tx);
+}
+Opt_Float64 GetTranslateYImpl(Ark_Matrix2D peer)
+{
+    CHECK_NULL_RETURN(peer, ERROR_VALUE);
+    return Converter::ArkValue<Opt_Float64>(peer->GetTranslateY());
+}
+void SetTranslateYImpl(Ark_Matrix2D peer,
+                       const Opt_Float64* translateY)
+{
+    CHECK_NULL_VOID(peer);
+    auto ty = Converter::OptConvertPtr<double>(translateY);
+    CHECK_NULL_VOID(ty);
+    peer->SetTranslateY(*ty);
+}
+} // Matrix2DAccessor
+const GENERATED_ArkUIMatrix2DAccessor* GetMatrix2DAccessor()
+{
+    static const GENERATED_ArkUIMatrix2DAccessor Matrix2DAccessorImpl {
+        Matrix2DAccessor::DestroyPeerImpl,
+        Matrix2DAccessor::ConstructImpl,
+        Matrix2DAccessor::GetFinalizerImpl,
+        Matrix2DAccessor::IdentityImpl,
+        Matrix2DAccessor::InvertImpl,
+        Matrix2DAccessor::RotateImpl,
+        Matrix2DAccessor::TranslateImpl,
+        Matrix2DAccessor::ScaleImpl,
+        Matrix2DAccessor::GetScaleXImpl,
+        Matrix2DAccessor::SetScaleXImpl,
+        Matrix2DAccessor::GetScaleYImpl,
+        Matrix2DAccessor::SetScaleYImpl,
+        Matrix2DAccessor::GetRotateXImpl,
+        Matrix2DAccessor::SetRotateXImpl,
+        Matrix2DAccessor::GetRotateYImpl,
+        Matrix2DAccessor::SetRotateYImpl,
+        Matrix2DAccessor::GetTranslateXImpl,
+        Matrix2DAccessor::SetTranslateXImpl,
+        Matrix2DAccessor::GetTranslateYImpl,
+        Matrix2DAccessor::SetTranslateYImpl,
+    };
+    return &Matrix2DAccessorImpl;
+}
+
+}

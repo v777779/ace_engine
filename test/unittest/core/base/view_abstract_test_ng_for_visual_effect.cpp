@@ -1,0 +1,421 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "test/unittest/core/base/view_abstract_test_ng.h"
+
+#define private public
+#define protected public
+
+#include "test/mock/adapter/ohos/osal/mock_system_properties.h"
+#include "core/components/common/properties/ui_material.h"
+
+using namespace testing;
+using namespace testing::ext;
+
+namespace OHOS::Ace::NG {
+/**
+ * @tc.name: SetTranslateTest001
+ * @tc.desc: Test the SetTranslate function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetTranslateTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor and construct TranslateOptions value.
+     */
+    TranslateOptions options1 { Dimension(100), Dimension(-200), Dimension(1) };
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    stack->ClearVisualState();
+    auto node = stack->GetMainFrameNode();
+    ASSERT_NE(node, nullptr);
+    /**
+     * @tc.steps: step2. Set a none zero TranslateOptions value and get.
+     * @tc.expected: step2. Translate value is same with the value set.
+     */
+    ViewAbstract::SetTranslate(options1);
+    auto translateValue = ViewAbstract::GetTranslate(node);
+    EXPECT_EQ(options1, translateValue);
+    /**
+     * @tc.steps: step3. Set a zero TranslateOptions value and get.
+     * @tc.expected: step3. Translate value is zero.
+     */
+    NG::TranslateOptions options2(0.0f, 0.0f, 0.0f);
+    ViewAbstract::SetTranslate(options2);
+    translateValue = ViewAbstract::GetTranslate(node);
+    EXPECT_EQ(translateValue.x.Value(), 0.0f);
+    EXPECT_EQ(translateValue.y.Value(), 0.0f);
+    EXPECT_EQ(translateValue.z.Value(), 0.0f);
+}
+
+/**
+ * @tc.name: SetRotateTest001
+ * @tc.desc: Test the SetRotate function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetRotateTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    stack->ClearVisualState();
+    auto node = stack->GetMainFrameNode();
+    ASSERT_NE(node, nullptr);
+    /**
+     * @tc.steps: step2. Set a none zero angle value and get.
+     * @tc.expected: step2. Angle value is same with the value set.
+     */
+    constexpr float angle = 90.0f;
+    Vector5F options1 { 0.0f, 0.0f, 1.0f, angle, 0.0f };
+    ViewAbstract::SetRotate(options1);
+    auto rotateValue = ViewAbstract::GetRotate(node);
+    EXPECT_EQ(options1, rotateValue);
+    /**
+     * @tc.steps: step3. Set a zero angle value and get. Restore the rotate value in node.
+     * @tc.expected: step3. Angle value is same with the value set.
+     */
+    constexpr float angleZero = 0.0f;
+    Vector5F options2 { 0.0f, 0.0f, 1.0f, angleZero, 0.0f };
+    // the last step should be restore the rotation value on node to default value.
+    ViewAbstract::SetRotate(options2);
+    rotateValue = ViewAbstract::GetRotate(node);
+    EXPECT_TRUE(NearEqual(rotateValue.w, angleZero));
+}
+
+/**
+ * @tc.name: SetScaleTest001
+ * @tc.desc: Test the SetScale function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetScaleTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    stack->ClearVisualState();
+    auto node = stack->GetMainFrameNode();
+    ASSERT_NE(node, nullptr);
+    /**
+     * @tc.steps: step2. Set a positive scale value and get.
+     * @tc.expected: step2. Scale value is same with the value set.
+     */
+    constexpr float scaleValue1 = 2.0f;
+    VectorF scale1 { scaleValue1, scaleValue1 };
+    ViewAbstract::SetScale(scale1);
+    auto scaleValue = ViewAbstract::GetScale(node);
+    EXPECT_EQ(scale1, scaleValue);
+    /**
+     * @tc.steps: step3. Set a negative angle value and get.
+     * @tc.expected: step3. Scale value is same with the value set.
+     */
+    constexpr float scaleValue2 = -2.0f;
+    VectorF scale2 { scaleValue2, scaleValue2 };
+    ViewAbstract::SetScale(scale2);
+    scaleValue = ViewAbstract::GetScale(node);
+    EXPECT_EQ(scale2, scaleValue);
+    /**
+     * @tc.steps: step3. Set a zero angle value and get. Restore the rotate value in node.
+     * @tc.expected: step3. Angle value is same with the value set.
+     */
+    VectorF scale3 { 1.0f, 1.0f };
+    ViewAbstract::SetScale(scale3);
+    scaleValue = ViewAbstract::GetScale(node);
+    EXPECT_EQ(scale3, scaleValue);
+}
+
+/**
+ * @tc.name: SetPivotTest001
+ * @tc.desc: Test the SetPivot function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetPivotTest001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    stack->ClearVisualState();
+    auto node = stack->GetMainFrameNode();
+    ASSERT_NE(node, nullptr);
+    /**
+     * @tc.steps: step2. Set a pivot value with x and y value and get.
+     * @tc.expected: step2. Pivot value is same with the value set.
+     */
+    constexpr float centerX = 50.0f;
+    constexpr float centerY = -50.0f;
+    DimensionOffset offset1 { Dimension(centerX), Dimension(centerY) };
+    ViewAbstract::SetPivot(offset1);
+    auto pivotProperty = node->GetRenderContext()->GetTransformCenter();
+    ASSERT_TRUE(pivotProperty.has_value());
+    EXPECT_TRUE(NearEqual(offset1, pivotProperty.value()));
+    /**
+     * @tc.steps: step3. Set a pivot value with x, y and z value and get.
+     * @tc.expected: step3. Pivot value is same with the value set.
+     */
+    DimensionOffset offset2 { Dimension(centerX), Dimension(0.0f) };
+    constexpr float centerZ = 50.0f;
+    offset2.SetZ(Dimension(centerZ));
+    ViewAbstract::SetPivot(offset2);
+    pivotProperty = node->GetRenderContext()->GetTransformCenter();
+    ASSERT_TRUE(pivotProperty.has_value());
+    EXPECT_TRUE(NearEqual(offset2, pivotProperty.value()));
+    /**
+     * @tc.steps: step4. Set a default pivot value and get. Restore the pivot value in node.
+     * @tc.expected: step4. Pivot value is same with the value set.
+     */
+    constexpr Dimension defaultDim(0.5f, DimensionUnit::PERCENT);
+    DimensionOffset offset3 { defaultDim, defaultDim };
+    ViewAbstract::SetPivot(offset3);
+    pivotProperty = node->GetRenderContext()->GetTransformCenter();
+    ASSERT_TRUE(pivotProperty.has_value());
+    EXPECT_TRUE(NearEqual(offset3, pivotProperty.value()));
+}
+
+/**
+ * @tc.name: SetBlendApplyType
+ * @tc.desc: Test the SetBlendApplyType function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetBlendApplyType, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    stack->ClearVisualState();
+    auto node = stack->GetMainFrameNode();
+    ASSERT_NE(node, nullptr);
+    /**
+     * @tc.steps: step2. Set a BlendApplyType value and get.
+     * @tc.expected: step2. BlendApplyType value is same with the value set.
+     */
+    BlendApplyType testType = BlendApplyType::OFFSCREEN;
+    ViewAbstract::SetBlendApplyType(testType);
+    auto property = node->GetRenderContext()->GetBackBlendApplyType();
+    ASSERT_TRUE(property.has_value());
+    EXPECT_EQ(testType, property.value());
+}
+
+/**
+ * @tc.name: SetExcludeFromRenderGroup001
+ * @tc.desc: Test the SetExcludeFromRenderGroup function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetExcludeFromRenderGroup001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor state.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeInStack = stack->GetMainFrameNode();
+    ASSERT_NE(nodeInStack, nullptr);
+    auto renderContextInStack = nodeInStack->GetRenderContext();
+    ASSERT_NE(renderContextInStack, nullptr);
+    /**
+     * @tc.steps: step2. Set true to ExcludeFromRenderGroup property and get.
+     * @tc.expected: step2. ExcludeFromRenderGroup property value is same with the value set.
+     */
+    ViewAbstract::SetExcludeFromRenderGroup(true);
+    ASSERT_TRUE(renderContextInStack->GetExcludeFromRenderGroup().has_value());
+    EXPECT_EQ(renderContextInStack->GetExcludeFromRenderGroup().value(), true);
+    /**
+     * @tc.steps: step3. Set false to ExcludeFromRenderGroup property and get.
+     * @tc.expected: step3. ExcludeFromRenderGroup property value is same with the value set.
+     */
+    ViewAbstract::SetExcludeFromRenderGroup(false);
+    ASSERT_TRUE(renderContextInStack->GetExcludeFromRenderGroup().has_value());
+    EXPECT_EQ(renderContextInStack->GetExcludeFromRenderGroup().value(), false);
+}
+
+/**
+ * @tc.name: SetExcludeFromRenderGroup002
+ * @tc.desc: Test the SetExcludeFromRenderGroup function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetExcludeFromRenderGroup002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor state.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto node = AceType::MakeRefPtr<FrameNode>("node", -1, AceType::MakeRefPtr<Pattern>());
+    auto renderContextOfNode = node->GetRenderContext();
+    ASSERT_NE(renderContextOfNode, nullptr);
+    auto nodePtr = AceType::RawPtr(node);
+    /**
+     * @tc.steps: step2. Set true to ExcludeFromRenderGroup property and get.
+     * @tc.expected: step2. ExcludeFromRenderGroup property value is same with the value set.
+     */
+    ViewAbstract::SetExcludeFromRenderGroup(nodePtr, true);
+    ASSERT_TRUE(renderContextOfNode->GetExcludeFromRenderGroup().has_value());
+    EXPECT_EQ(renderContextOfNode->GetExcludeFromRenderGroup().value(), true);
+    /**
+     * @tc.steps: step3. Set false to ExcludeFromRenderGroup property and get.
+     * @tc.expected: step3. ExcludeFromRenderGroup property value is same with the value set.
+     */
+    ViewAbstract::SetExcludeFromRenderGroup(nodePtr, false);
+    ASSERT_TRUE(renderContextOfNode->GetExcludeFromRenderGroup().has_value());
+    EXPECT_EQ(renderContextOfNode->GetExcludeFromRenderGroup().value(), false);
+}
+
+/**
+ * @tc.name: SetSystemMaterial001
+ * @tc.desc: Test the SetSystemMaterial function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetSystemMaterial001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor state.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto nodeInStack = stack->GetMainFrameNode();
+    ASSERT_NE(nodeInStack, nullptr);
+    auto renderContextInStack = nodeInStack->GetRenderContext();
+    ASSERT_NE(renderContextInStack, nullptr);
+    /**
+     * @tc.steps: step2. call SetSystemMaterial and get.
+     * @tc.expected: step2. SystemMaterial type value is same with the value set.
+     */
+    auto material = AceType::MakeRefPtr<UiMaterial>();
+    auto type = static_cast<int32_t>(MaterialType::SEMI_TRANSPARENT);
+    material->SetType(type);
+    ViewAbstract::SetSystemMaterial(AceType::RawPtr(material));
+    ASSERT_NE(renderContextInStack->GetSystemMaterial(), nullptr);
+    EXPECT_EQ(renderContextInStack->GetSystemMaterial()->GetType(), type);
+    /**
+     * @tc.steps: step3. call SetSystemMaterial with null and get.
+     * @tc.expected: step3. SystemMaterial pointer is null.
+     */
+    ViewAbstract::SetSystemMaterial(nullptr);
+    EXPECT_EQ(renderContextInStack->GetSystemMaterial(), nullptr);
+}
+
+/**
+ * @tc.name: SetSystemMaterial002
+ * @tc.desc: Test the SetSystemMaterial function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetSystemMaterial002, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check ViewStackProcessor state.
+     */
+    auto stack = ViewStackProcessor::GetInstance();
+    ASSERT_NE(stack, nullptr);
+    auto node = AceType::MakeRefPtr<FrameNode>("node", -1, AceType::MakeRefPtr<Pattern>());
+    auto renderContextOfNode = node->GetRenderContext();
+    ASSERT_NE(renderContextOfNode, nullptr);
+    auto nodePtr = AceType::RawPtr(node);
+    /**
+     * @tc.steps: step2. call SetSystemMaterial and get.
+     * @tc.expected: step2. SystemMaterial type value is same with the value set.
+     */
+    auto material = AceType::MakeRefPtr<UiMaterial>();
+    auto type = static_cast<int32_t>(MaterialType::SEMI_TRANSPARENT);
+    material->SetType(type);
+    ViewAbstract::SetSystemMaterial(nodePtr, AceType::RawPtr(material));
+    ASSERT_NE(renderContextOfNode->GetSystemMaterial(), nullptr);
+    EXPECT_EQ(renderContextOfNode->GetSystemMaterial()->GetType(), type);
+    /**
+     * @tc.steps: step3. call SetSystemMaterial and get.
+     * @tc.expected: step3. SystemMaterial type value is same with the value set.
+     */
+    type = static_cast<int32_t>(MaterialType::NONE);
+    material->SetType(type);
+    ViewAbstract::SetSystemMaterial(nodePtr, AceType::RawPtr(material));
+    ASSERT_NE(renderContextOfNode->GetSystemMaterial(), nullptr);
+    EXPECT_EQ(renderContextOfNode->GetSystemMaterial()->GetType(), type);
+    /**
+     * @tc.steps: step4. call SetSystemMaterial with null and get.
+     * @tc.expected: step4. SystemMaterial pointer is null.
+     */
+    ViewAbstract::SetSystemMaterial(nodePtr, nullptr);
+    EXPECT_EQ(renderContextOfNode->GetSystemMaterial(), nullptr);
+}
+
+/**
+ * @tc.name: SetSystemMaterialImmediate001
+ * @tc.desc: Test the SetSystemMaterialImmediate function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, SetSystemMaterialImmediate001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check node state.
+     */
+    auto node = AceType::MakeRefPtr<FrameNode>("", -1, AceType::MakeRefPtr<Pattern>());
+    auto pattern = node->GetPattern();
+    ASSERT_NE(pattern, nullptr);
+    g_isConfigChangePerform = true;
+    /**
+     * @tc.steps: step2. call SetSystemMaterialImmediate. set SEMI_TRANSPARENT
+     */
+    auto material = AceType::MakeRefPtr<UiMaterial>();
+    auto type = static_cast<int32_t>(MaterialType::SEMI_TRANSPARENT);
+    material->SetType(type);
+    ViewAbstract::SetSystemMaterialImmediate(AceType::RawPtr(node), AceType::RawPtr(material));
+    if (!pattern->resourceMgr_) {
+        g_isConfigChangePerform = false;
+    }
+    ASSERT_NE(pattern->resourceMgr_, nullptr);
+    EXPECT_FALSE(pattern->resourceMgr_->Empty());
+    g_isConfigChangePerform = false;
+}
+
+/**
+ * @tc.name: ResetSystemMaterialEffect001
+ * @tc.desc: Test the ResetSystemMaterialEffect function of View_Abstract
+ * @tc.type: FUNC
+ */
+HWTEST_F(ViewAbstractTestNg, ResetSystemMaterialEffect001, TestSize.Level1)
+{
+    /**
+     * @tc.steps: step1. Check node state.
+     */
+    auto node = AceType::MakeRefPtr<FrameNode>("testNode", -1, AceType::MakeRefPtr<Pattern>());
+    auto renderContext = node->GetRenderContext();
+    ASSERT_NE(renderContext, nullptr);
+
+    /**
+     * @tc.steps: step2. call SetSystemMaterial.
+     */
+    auto material = AceType::MakeRefPtr<UiMaterial>();
+    material->SetType(static_cast<int32_t>(MaterialType::SEMI_TRANSPARENT));
+    ViewAbstract::SetSystemMaterial(AceType::RawPtr(node), AceType::RawPtr(material));
+
+    /**
+     * @tc.steps: step3. updateColor.
+     */
+    Color testColor(0xFF00FF);
+    renderContext->UpdatePreBackgroundColor(testColor);
+
+    /**
+     * @tc.steps: step4. call ResetSystemMaterialEffect.
+     * @tc.expected: step4. Colors equals PreColors.
+     */
+    ViewAbstract::ResetSystemMaterialEffect(AceType::RawPtr(node));
+    EXPECT_EQ(renderContext->GetBackgroundColor().value(), testColor);
+}
+} // namespace OHOS::Ace::NG

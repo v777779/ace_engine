@@ -1,0 +1,190 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "core/components_ng/pattern/pattern.h"
+
+#include "core/common/resource/resource_parse_utils.h"
+#include "core/components_ng/event/focus_hub.h"
+#include "core/components_ng/pattern/corner_mark/corner_mark.h"
+#include "core/components_ng/property/accessibility_property.h"
+
+namespace OHOS::Ace::NG {
+int32_t Pattern::OnRecvCommand(const std::string& command)
+{
+    auto json = JsonUtil::ParseJsonString(command);
+    if (!json || !json->IsValid() || !json->IsObject()) {
+        return RET_FAILED;
+    }
+    auto event = json->GetString("cmd");
+    if (event.compare("click") == 0) {
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, RET_FAILED);
+        auto eventHub = host->GetEventHub<EventHub>();
+        CHECK_NULL_RETURN(eventHub, RET_FAILED);
+        if (!eventHub->IsEnabled()) {
+            return RET_FAILED;
+        }
+        auto gestureHub = host->GetOrCreateGestureEventHub();
+        CHECK_NULL_RETURN(gestureHub, RET_FAILED);
+        auto clickEventFunc = gestureHub->GetClickEvent();
+        CHECK_NULL_RETURN(clickEventFunc, RET_FAILED);
+        GestureEvent info;
+        clickEventFunc(info);
+        return RET_SUCCESS;
+    } else if (event.compare("ShowCornerMark") == 0) {
+        auto host = GetHost();
+        CHECK_NULL_RETURN(host, RET_FAILED);
+        auto cornerMark = AceType::MakeRefPtr<CornerMark>();
+        CHECK_NULL_RETURN(cornerMark, RET_FAILED);
+        return cornerMark->ResponseShowCornerMarkEvent(host, command);
+    } else {
+        return OnInjectionEvent(command);
+    }
+    return RET_FAILED;
+}
+
+void Pattern::OnColorModeChange(uint32_t colorMode)
+{
+    if (resourceMgr_) {
+        resourceMgr_->ReloadResources();
+    }
+}
+
+void Pattern::AddResObj(const std::string& key, const RefPtr<ResourceObject>& resObj,
+    std::function<void(const RefPtr<ResourceObject>&)>&& updateFunc)
+{
+    if (resourceMgr_ == nullptr) {
+        resourceMgr_ = MakeRefPtr<PatternResourceManager>();
+    }
+    resourceMgr_->AddResource(key, resObj, std::move(updateFunc));
+}
+
+void Pattern::AddResCache(const std::string& key, const std::string& value)
+{
+    if (resourceMgr_ == nullptr) {
+        resourceMgr_ = MakeRefPtr<PatternResourceManager>();
+    }
+    resourceMgr_->AddResCache(key, value);
+}
+
+std::string Pattern::GetResCacheMapByKey(const std::string& key)
+{
+    if (resourceMgr_ == nullptr) {
+        return "";
+    }
+    return resourceMgr_->GetResCacheMapByKey(key);
+}
+
+void Pattern::RemoveResObj(const std::string& key)
+{
+    if (resourceMgr_) {
+        resourceMgr_->RemoveResource(key);
+        if (resourceMgr_->Empty()) {
+            resourceMgr_ = nullptr;
+        }
+    }
+}
+
+void Pattern::UnRegisterResource(const std::string& key)
+{
+    RemoveResObj(key);
+}
+
+ScopeFocusAlgorithm Pattern::GetScopeFocusAlgorithm()
+{
+    return ScopeFocusAlgorithm();
+}
+
+FocusPattern Pattern::GetFocusPattern() const
+{
+    return {};
+}
+
+GestureEventFunc Pattern::GetLongPressEventRecorder()
+{
+    auto longPressCallback = [weak = WeakClaim(this)](GestureEvent& info) {
+        if (!Recorder::EventRecorder::Get().IsComponentRecordEnable()) {
+            return;
+        }
+        auto pattern = weak.Upgrade();
+        CHECK_NULL_VOID(pattern);
+        auto host = pattern->GetHost();
+        CHECK_NULL_VOID(host);
+        auto inspectorId = host->GetInspectorId().value_or("");
+        auto text = host->GetAccessibilityProperty<NG::AccessibilityProperty>()->GetGroupText(true);
+        auto desc = host->GetAutoEventParamValue("");
+
+        Recorder::EventParamsBuilder builder;
+        builder.SetId(inspectorId)
+            .SetType(host->GetTag())
+            .SetEventType(Recorder::LONG_PRESS)
+            .SetText(text)
+            .SetHost(host)
+            .SetDescription(desc);
+        if (Recorder::EventRecorder::Get().IsRecordEnable(Recorder::EventCategory::CATEGORY_RECT)) {
+            auto rect = host->GetTransformRectRelativeToWindow().ToBounds();
+            builder.SetExtra(Recorder::KEY_NODE_RECT, std::move(rect));
+        }
+        Recorder::EventRecorder::Get().OnEvent(std::move(builder));
+    };
+    return longPressCallback;
+}
+
+RefPtr<AccessibilityProperty> Pattern::CreateAccessibilityProperty()
+{
+    return MakeRefPtr<AccessibilityProperty>();
+}
+
+RefPtr<LayoutAlgorithm> Pattern::CreateLayoutAlgorithm()
+{
+    return MakeRefPtr<BoxLayoutAlgorithm>();
+}
+
+RefPtr<EventHub> Pattern::CreateEventHub()
+{
+    return MakeRefPtr<EventHub>();
+}
+
+void Pattern::CheckLocalized()
+{
+    auto host = GetHost();
+    CHECK_NULL_VOID(host);
+    auto layoutProperty = host->GetLayoutProperty();
+    CHECK_NULL_VOID(layoutProperty);
+    auto layoutDirection = layoutProperty->GetNonAutoLayoutDirection();
+    if (layoutProperty->IsPositionLocalizedEdges()) {
+        layoutProperty->CheckPositionLocalizedEdges(layoutDirection);
+    }
+    layoutProperty->CheckMarkAnchorPosition(layoutDirection);
+    if (layoutProperty->IsOffsetLocalizedEdges()) {
+        layoutProperty->CheckOffsetLocalizedEdges(layoutDirection);
+    }
+    layoutProperty->CheckLocalizedPadding(layoutProperty, layoutDirection);
+    layoutProperty->CheckLocalizedMargin(layoutProperty, layoutDirection);
+    layoutProperty->CheckLocalizedEdgeWidths(layoutProperty, layoutDirection);
+    layoutProperty->CheckLocalizedEdgeColors(layoutDirection);
+    layoutProperty->CheckLocalizedBorderRadiuses(layoutDirection);
+    layoutProperty->CheckLocalizedOuterBorderColor(layoutDirection);
+    layoutProperty->CheckLocalizedBorderImageSlice(layoutDirection);
+    layoutProperty->CheckLocalizedBorderImageWidth(layoutDirection);
+    layoutProperty->CheckLocalizedBorderImageOutset(layoutDirection);
+    layoutProperty->CheckLocalizedAlignment(layoutDirection);
+    // Reset for safeAreaExpand's Cache in GeometryNode
+    host->ResetSafeAreaPadding();
+    layoutProperty->CheckLocalizedSafeAreaPadding(layoutDirection);
+    layoutProperty->CheckIgnoreLayoutSafeArea(layoutDirection);
+    layoutProperty->CheckBackgroundLayoutSafeAreaEdges(layoutDirection);
+}
+} // namespace OHOS::Ace::NG

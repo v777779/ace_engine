@@ -1,0 +1,86 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "core/components_ng/base/frame_node.h"
+#include "core/interfaces/native/implementation/event_result_peer_impl.h"
+#include "core/interfaces/native/utility/converter.h"
+#include "arkoala_api_generated.h"
+
+namespace OHOS::Ace::NG::GeneratedModifier {
+namespace EventResultAccessor {
+void DestroyPeerImpl(Ark_EventResult peer)
+{
+    delete peer;
+}
+Ark_EventResult ConstructImpl()
+{
+    return new EventResultPeer();
+}
+Ark_NativePointer GetFinalizerImpl()
+{
+    return reinterpret_cast<void *>(&DestroyPeerImpl);
+}
+void SetGestureEventResult0Impl(Ark_EventResult peer,
+                                Ark_Boolean result)
+{
+    CHECK_NULL_VOID(peer && peer->handler.has_value());
+    auto& variant = peer->handler.value();
+    if (auto gestureResult = std::get_if<RefPtr<GestureEventResult>>(&variant)) {
+        if (*gestureResult) {
+            (*gestureResult)->SetGestureEventResult(Converter::Convert<bool>(result));
+        }
+    }
+}
+void SetGestureEventResult1Impl(EventResultPeer* peer,
+                                Ark_Boolean result,
+                                Ark_Boolean stopPropagation)
+{
+    CHECK_NULL_VOID(peer && peer->handler.has_value());
+    auto& variant = peer->handler.value();
+    if (auto gestureResult = std::get_if<RefPtr<GestureEventResult>>(&variant)) {
+        if (*gestureResult) {
+            (*gestureResult)->SetGestureEventResult(Converter::Convert<bool>(result),
+                                                    Converter::Convert<bool>(stopPropagation));
+        }
+    }
+}
+void SetMouseEventResultImpl(EventResultPeer* peer,
+                             Ark_Boolean result,
+                             const Opt_Boolean* stopPropagation)
+{
+    CHECK_NULL_VOID(peer && peer->handler.has_value());
+    auto& variant = peer->handler.value();
+    if (auto mouseResult = std::get_if<RefPtr<MouseEventResult>>(&variant)) {
+        if (*mouseResult) {
+            auto stopProp = Converter::OptConvertPtr<bool>(stopPropagation).value_or(false);
+            (*mouseResult)->SetMouseEventResult(Converter::Convert<bool>(result), stopProp);
+        }
+    }
+}
+} // EventResultAccessor
+const GENERATED_ArkUIEventResultAccessor* GetEventResultAccessor()
+{
+    static const GENERATED_ArkUIEventResultAccessor EventResultAccessorImpl {
+        EventResultAccessor::DestroyPeerImpl,
+        EventResultAccessor::ConstructImpl,
+        EventResultAccessor::GetFinalizerImpl,
+        EventResultAccessor::SetGestureEventResult0Impl,
+        EventResultAccessor::SetGestureEventResult1Impl,
+        EventResultAccessor::SetMouseEventResultImpl,
+    };
+    return &EventResultAccessorImpl;
+}
+
+}

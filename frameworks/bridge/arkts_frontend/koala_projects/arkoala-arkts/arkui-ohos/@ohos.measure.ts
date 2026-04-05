@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { int32 } from "@koalaui/common"
+import { SizeOptions } from 'arkui/framework'
+import { GlobalScope_ohos_measure_utils } from 'arkui/framework'
+import { Resource } from "global.resource"
+import { FontStyle, FontWeight, TextAlign, TextOverflow, TextCase, WordBreak } from 'arkui/framework'
+import { StyledString, TextLayoutOptions, Paragraph } from 'arkui/framework'
+
+export interface MeasureOptions {
+    textContent: string | Resource;
+    constraintWidth?: double | string | Resource;
+    fontSize?: double | string | Resource;
+    fontStyle?: int32 | FontStyle;
+    fontWeight?: int32 | string | FontWeight;
+    fontFamily?: string | Resource;
+    letterSpacing?: double | string;
+    textAlign?: int32 | TextAlign;
+    overflow?: int32 | TextOverflow;
+    maxLines?: int32;
+    lineHeight?: double | string | Resource;
+    baselineOffset?: double | string;
+    textCase?: int32 | TextCase;
+    textIndent?: double | string;
+    wordBreak?: WordBreak;
+}
+
+export class MeasureText {
+    public static measureText(options: MeasureOptions) : double {
+        return GlobalScope_ohos_measure_utils.measureText(options);
+    }
+    public static measureTextSize(options: MeasureOptions) : SizeOptions {
+        return GlobalScope_ohos_measure_utils.measureTextSize(options);
+    }
+    public getParagraphs(styledString: StyledString, options?: TextLayoutOptions): Array<Paragraph> {
+        return GlobalScope_ohos_measure_utils.getParagraphs(styledString, options);
+    }
+}

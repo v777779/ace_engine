@@ -1,0 +1,352 @@
+/*
+ * Copyright (c) 2022 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "bridge/declarative_frontend/jsview/js_list_item_group.h"
+
+#include "bridge/declarative_frontend/jsview/js_list_item.h"
+#include "bridge/declarative_frontend/jsview/js_view_common_def.h"
+#include "bridge/declarative_frontend/jsview/js_list_children_main_size.h"
+#include "bridge/declarative_frontend/view_stack_processor.h"
+#include "core/common/dynamic_module_helper.h"
+#include "compatible/components/list_v2/list_item_group_component.h"
+#include "core/components_ng/pattern/list/list_item_group_model.h"
+#include "core/components_ng/pattern/list/list_item_group_model_ng.h"
+
+namespace OHOS::Ace {
+
+std::unique_ptr<ListItemGroupModel> ListItemGroupModel::instance_ = nullptr;
+std::mutex ListItemGroupModel::mutex_;
+
+ListItemGroupModel* ListItemGroupModel::GetInstance()
+{
+    if (!instance_) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!instance_) {
+#ifdef NG_BUILD
+            instance_.reset(new NG::ListItemGroupModelNG());
+#else
+            if (Container::IsCurrentUseNewPipeline()) {
+                instance_.reset(new NG::ListItemGroupModelNG());
+            } else {
+                static auto loader = DynamicModuleHelper::GetInstance().GetLoaderByName("list-item-group");
+                static ListItemGroupModel* instance =
+                    loader ? reinterpret_cast<ListItemGroupModel*>(loader->CreateModel()) : nullptr;
+                return instance;
+            }
+#endif
+        }
+    }
+    return instance_.get();
+}
+
+} // namespace OHOS::Ace
+namespace OHOS::Ace::Framework {
+
+namespace {
+void SyncChildrenSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> childrenSize)
+{
+    auto sizeArray = childrenSizeObj->GetProperty("sizeArray");
+    if (!sizeArray->IsArray()) {
+        return;
+    }
+    childrenSize->ResizeChildrenSize(0);
+    auto childrenSizeJSArray = JSRef<JSArray>::Cast(sizeArray);
+    auto length = childrenSizeJSArray->Length();
+    for (size_t i = 0; i < length; ++i) {
+        // -1.0: represent default size.
+        double childSize = -1.0;
+        if (!JSViewAbstract::ParseJsDouble(childrenSizeJSArray->GetValueAt(i), childSize) || Negative(childSize)) {
+            // -1.0f: represent default size.
+            childrenSize->SyncChildrenSize(-1.0f);
+        } else {
+            childrenSize->SyncChildrenSize(Dimension(childSize, DimensionUnit::VP).ConvertToPx());
+        }
+    }
+    childrenSize->SyncChildrenSizeOver();
+}
+
+void CallSetNativeMainSize(const JSRef<JSObject>& childrenSizeObj,
+    const JSRef<JSObject>& nativeMainSize)
+{
+    auto property = childrenSizeObj->GetProperty("setNativeMainSize");
+    if (property->IsFunction()) {
+        auto setnativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+        JSRef<JSVal> params[1];
+        params[0] = JSRef<JSVal>::Cast(nativeMainSize);
+        setnativeMainSizeFunc->Call(childrenSizeObj, 1, params);
+    }
+}
+
+void InitNativeMainSize(const JSRef<JSObject>& childrenSizeObj, RefPtr<NG::ListChildrenMainSize> listChildrenMainSize,
+    NG::FrameNode* node = nullptr)
+{
+    auto nativeMainSize = JSClass<JSListChildrenMainSize>::NewInstance();
+    if (nativeMainSize->IsEmpty()) {
+        return;
+    }
+    auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+    JSListChildrenMainSize* jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    if (jsChildrenMainSize == nullptr) {
+        return;
+    }
+    auto frameNode = AceType::WeakClaim(node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode());
+    jsChildrenMainSize->SetHost(frameNode);
+
+    auto id = Container::CurrentId();
+    auto onStateCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                               nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](
+                               size_t start, size_t deleteCount, std::vector<float>&& newChildrenSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        CHECK_NULL_VOID(context);
+        context->AddBuildFinishCallBack([start, deleteCount, change = std::move(newChildrenSize), weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->ChangeData(start, deleteCount, change);
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnStateChangedCallback(onStateCallback);
+
+    auto updateSizeCallback = [id, weak = AceType::WeakClaim(AceType::RawPtr(listChildrenMainSize)),
+                                  nativeMainSize = AceType::WeakClaim(jsChildrenMainSize)](double defaultSize) {
+        ContainerScope scope(id);
+        auto jsChildrenMainSize = nativeMainSize.Upgrade();
+        CHECK_NULL_VOID(jsChildrenMainSize);
+        auto frameNode =  jsChildrenMainSize->GetHost();
+        CHECK_NULL_VOID(frameNode);
+        auto context = frameNode->GetContext();
+        context->AddBuildFinishCallBack([defaultSize, weak]() {
+            auto listChildrenMainSize = weak.Upgrade();
+            CHECK_NULL_VOID(listChildrenMainSize);
+            listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        });
+        context->RequestFrame();
+    };
+    jsChildrenMainSize->SetOnDefaultSizeUpdate(updateSizeCallback);
+
+    CallSetNativeMainSize(childrenSizeObj, nativeMainSize);
+}
+
+} // namespace
+
+void JSListItemGroup::SetChildrenMainSize(const JSCallbackInfo& args)
+{
+    if (args.Length() != 1 || !(args[0]->IsObject())) {
+        return;
+    }
+    SetChildrenMainSize(JSRef<JSObject>::Cast(args[0]));
+}
+
+void JSListItemGroup::SetChildrenMainSize(const JSRef<JSObject>& childrenSizeObj, NG::FrameNode* node)
+{
+    double defaultSize = 0.0f;
+    if (!ParseJsDouble(childrenSizeObj->GetProperty("childDefaultSize"), defaultSize) || !NonNegative(defaultSize)) {
+        LOGW("JSListItemGroup input parameter defaultSize check failed.");
+        return;
+    }
+    auto listChildrenMainSize = ListItemGroupModel::GetInstance()->GetOrCreateListChildrenMainSize(node);
+    CHECK_NULL_VOID(listChildrenMainSize);
+
+    // Used for makeObserved to listen and refresh status.
+    childrenSizeObj->GetProperty("changeFlag");
+    auto property = childrenSizeObj->GetProperty("getNativeMainSize");
+    if (!property->IsFunction()) {
+        return;
+    }
+    auto getNativeMainSizeFunc = JSRef<JSFunc>::Cast(property);
+    auto nativeMainSize = getNativeMainSizeFunc->Call(childrenSizeObj);
+    JSListChildrenMainSize* jsChildrenMainSize = nullptr;
+    if (!nativeMainSize->IsEmpty() && nativeMainSize->IsObject()) {
+        auto nativeMainSizeObj = JSRef<JSObject>::Cast(nativeMainSize);
+        jsChildrenMainSize = nativeMainSizeObj->Unwrap<JSListChildrenMainSize>();
+    }
+    auto frameNode = node ? node : NG::ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    if (nativeMainSize->IsEmpty() || !nativeMainSize->IsObject() || listChildrenMainSize->NeedSync() ||
+        (jsChildrenMainSize && !jsChildrenMainSize->IsHostEqual(frameNode))) {
+        InitNativeMainSize(childrenSizeObj, listChildrenMainSize, frameNode);
+        listChildrenMainSize->UpdateDefaultSize(Dimension(defaultSize, DimensionUnit::VP).ConvertToPx());
+        SyncChildrenSize(childrenSizeObj, listChildrenMainSize);
+    }
+}
+
+void JSListItemGroup::Create(const JSCallbackInfo& args)
+{
+    V2::ListItemGroupStyle listItemGroupStyle = V2::ListItemGroupStyle::NONE;
+    if (args.Length() < 1 || !args[0]->IsObject()) {
+        ListItemGroupModel::GetInstance()->Create(listItemGroupStyle);
+        NG::ListItemGroupModelNG::GetInstance()->RemoveHeader();
+        NG::ListItemGroupModelNG::GetInstance()->RemoveFooter();
+        args.ReturnSelf();
+        return;
+    }
+    JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
+    auto styleObject = obj->GetProperty("style");
+    if (styleObject->IsNumber()) {
+        listItemGroupStyle = static_cast<V2::ListItemGroupStyle>(styleObject->ToNumber<int32_t>());
+    }
+    ListItemGroupModel::GetInstance()->Create(listItemGroupStyle);
+
+    Dimension space;
+    if (ConvertFromJSValue(obj->GetProperty("space"), space) && space.IsNonNegative()) {
+        ListItemGroupModel::GetInstance()->SetSpace(space);
+    }
+
+    if (obj->HasProperty("headerComponent")) {
+        auto headerComponentObject = obj->GetProperty("headerComponent");
+        if (!ParseHeaderAndFooterContent(headerComponentObject, true)) {
+            NG::ListItemGroupModelNG::GetInstance()->RemoveHeader();
+        }
+    } else {
+        if (!SetHeaderBuilder(obj)) {
+            NG::ListItemGroupModelNG::GetInstance()->RemoveHeader();
+        }
+    }
+
+    if (obj->HasProperty("footerComponent")) {
+        auto footerComponentObject = obj->GetProperty("footerComponent");
+        if (!ParseHeaderAndFooterContent(footerComponentObject, false)) {
+            NG::ListItemGroupModelNG::GetInstance()->RemoveFooter();
+        }
+    } else {
+        if (!SetFooterBuilder(obj)) {
+            NG::ListItemGroupModelNG::GetInstance()->RemoveFooter();
+        }
+    }
+
+    args.ReturnSelf();
+}
+
+void JSListItemGroup::SetDivider(const JSCallbackInfo& args)
+{
+    V2::ItemDivider divider;
+    if (args.Length() >= 1 && args[0]->IsObject()) {
+        JSRef<JSObject> obj = JSRef<JSObject>::Cast(args[0]);
+        RefPtr<ResourceObject> resObjStrokeWidth;
+        RefPtr<ResourceObject> resObjColor;
+        RefPtr<ResourceObject> resObjStartMargin;
+        RefPtr<ResourceObject> resObjEndMargin;
+
+        if (!ConvertFromJSValue(obj->GetProperty("strokeWidth"), divider.strokeWidth, resObjStrokeWidth)) {
+            LOGW("Invalid strokeWidth of divider");
+            divider.strokeWidth.Reset();
+        }
+
+        bool setByUser = false;
+        if (!ConvertFromJSValue(obj->GetProperty("color"), divider.color, resObjColor)) {
+            // Failed to get color from param, using default color defined in theme
+            RefPtr<ListTheme> listTheme = GetTheme<ListTheme>();
+            if (listTheme) {
+                divider.color = listTheme->GetDividerColor();
+                setByUser = false;
+            }
+        } else {
+            setByUser = true;
+        }
+
+        ConvertFromJSValue(obj->GetProperty("startMargin"), divider.startMargin, resObjStartMargin);
+
+        ConvertFromJSValue(obj->GetProperty("endMargin"), divider.endMargin, resObjEndMargin);
+
+        if (SystemProperties::ConfigChangePerform()) {
+            NG::ListItemGroupModelNG::GetInstance()->SetDividerColorByUser(setByUser);
+            NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerStrokeWidth(resObjStrokeWidth);
+            NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerColor(resObjColor);
+            NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerStartMargin(resObjStartMargin);
+            NG::ListItemGroupModelNG::GetInstance()->ParseResObjDividerEndMargin(resObjEndMargin);
+        }
+    }
+    ListItemGroupModel::GetInstance()->SetDivider(divider);
+    args.ReturnSelf();
+}
+
+void JSListItemGroup::SetAspectRatio(const JSCallbackInfo& args) {}
+
+bool JSListItemGroup::ParseHeaderAndFooterContent(const JSRef<JSVal>& contentParam, bool isHeader)
+{
+    if (!contentParam->IsObject()) {
+        return false;
+    }
+    JSRef<JSObject> contentObject = JSRef<JSObject>::Cast(contentParam);
+    JSRef<JSVal> builderNodeParam = contentObject->GetProperty("builderNode_");
+    if (!builderNodeParam->IsObject()) {
+        return false;
+    }
+    JSRef<JSObject> builderNodeObject = JSRef<JSObject>::Cast(builderNodeParam);
+    JSRef<JSVal> nodeptr = builderNodeObject->GetProperty("nodePtr_");
+    if (nodeptr.IsEmpty()) {
+        return false;
+    }
+    const auto* vm = nodeptr->GetEcmaVM();
+    CHECK_NULL_RETURN(nodeptr->GetLocalHandle()->IsNativePointer(vm), false);
+    auto* node = nodeptr->GetLocalHandle()->ToNativePointer(vm)->Value();
+    auto* frameNode = reinterpret_cast<NG::FrameNode*>(node);
+    CHECK_NULL_RETURN(frameNode, false);
+    RefPtr<NG::FrameNode> refPtrFrameNode = AceType::Claim(frameNode);
+    if (isHeader) {
+        NG::ListItemGroupModelNG::GetInstance()->SetHeaderComponent(refPtrFrameNode);
+    } else {
+        NG::ListItemGroupModelNG::GetInstance()->SetFooterComponent(refPtrFrameNode);
+    }
+    return true;
+}
+
+bool JSListItemGroup::SetHeaderBuilder(const JSRef<JSObject>& obj)
+{
+    auto headerObject = obj->GetProperty("header");
+    if (headerObject->IsFunction()) {
+        auto builderFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSFunc>::Cast(headerObject));
+        auto headerAction = [builderFunc]() { builderFunc->Execute(); };
+        ListItemGroupModel::GetInstance()->SetHeader(headerAction);
+        return true;
+    }
+    return false;
+}
+
+bool JSListItemGroup::SetFooterBuilder(const JSRef<JSObject>& obj)
+{
+    auto footerObject = obj->GetProperty("footer");
+    if (footerObject->IsFunction()) {
+        auto builderFunc = AceType::MakeRefPtr<JsFunction>(JSRef<JSFunc>::Cast(footerObject));
+        auto footerAction = [builderFunc]() { builderFunc->Execute(); };
+        ListItemGroupModel::GetInstance()->SetFooter(footerAction);
+        return true;
+    }
+    return false;
+}
+
+void JSListItemGroup::JSBind(BindingTarget globalObj)
+{
+    JSClass<JSListItemGroup>::Declare("ListItemGroup");
+    JSClass<JSListItemGroup>::StaticMethod("create", &JSListItemGroup::Create);
+
+    JSClass<JSListItemGroup>::StaticMethod("aspectRatio", &JSListItemGroup::SetAspectRatio);
+    JSClass<JSListItemGroup>::StaticMethod("childrenMainSize", &JSListItemGroup::SetChildrenMainSize);
+    JSClass<JSListItemGroup>::StaticMethod("divider", &JSListItemGroup::SetDivider);
+    JSClass<JSListItemGroup>::StaticMethod("onDetach", &JSInteractableView::JsOnDetach);
+    JSClass<JSListItemGroup>::StaticMethod("onDisAppear", &JSInteractableView::JsOnDisAppear);
+    JSClass<JSListItemGroup>::StaticMethod("onAttach", &JSInteractableView::JsOnAttach);
+    JSClass<JSListItemGroup>::StaticMethod("onAppear", &JSInteractableView::JsOnAppear);
+    JSClass<JSListItemGroup>::StaticMethod("onTouch", &JSInteractableView::JsOnTouch);
+
+    JSClass<JSListItemGroup>::Inherit<JSInteractableView>();
+    JSClass<JSListItemGroup>::InheritAndBind<JSContainerBase>(globalObj);
+}
+
+} // namespace OHOS::Ace::Framework

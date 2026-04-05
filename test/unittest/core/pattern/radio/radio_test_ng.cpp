@@ -1,0 +1,1706 @@
+/*
+ * Copyright (c) 2022-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "test/unittest/core/pattern/test_ng.h"
+
+#define private public
+#define protected public
+#include "test/mock/frameworks/core/common/mock_container.h"
+#include "test/mock/frameworks/core/common/mock_theme_manager.h"
+#include "test/mock/frameworks/core/pipeline/mock_pipeline_context.h"
+#include "test/mock/frameworks/core/rosen/mock_canvas.h"
+#include "ui/resource/resource_info.h"
+
+#include "core/components/checkable/checkable_theme.h"
+#include "core/components_ng/base/frame_node.h"
+#include "core/components_ng/base/view_abstract.h"
+#include "core/components_ng/base/view_stack_processor.h"
+#include "core/components_ng/pattern/linear_layout/column_model_ng.h"
+#include "core/components_ng/pattern/radio/radio_model_ng.h"
+#include "core/components_ng/pattern/radio/radio_paint_property.h"
+#include "core/components_ng/pattern/radio/radio_pattern.h"
+#include "core/components_ng/pattern/stage/stage_manager.h"
+#include "core/components_ng/pattern/stage/stage_pattern.h"
+#include "core/components_ng/pattern/stage/page_event_hub.h"
+#include "core/components_v2/inspector/inspector_constants.h"
+#include "test/mock/frameworks/core/common/mock_container.h"
+
+using namespace testing;
+using namespace testing::ext;
+using RadioBuilderFunc = std::function<void()>;
+namespace OHOS::Ace::NG {
+namespace {
+const std::string NAME = "radio";
+const std::string VALUE = "radio";
+const std::string NAME1 = "radio1";
+const std::string GROUP_NAME = "radioGroup";
+const std::string GROUP_NAME1 = "radioGroup1";
+const std::string GROUP_NAME_CHANGE = "radioGroupChange";
+constexpr Dimension WIDTH = 50.0_vp;
+constexpr Dimension HEIGHT = 50.0_vp;
+constexpr NG::PaddingPropertyF PADDING = NG::PaddingPropertyF();
+constexpr bool CHECKED = true;
+constexpr Dimension HORIZONTAL_PADDING = Dimension(5.0);
+constexpr Dimension VERTICAL_PADDING = Dimension(4.0);
+constexpr float COMPONENT_WIDTH = 200.0;
+constexpr float COMPONENT_HEIGHT = 210.0;
+constexpr float COMPONENT_WIDTH_INVALID = -1.0;
+constexpr float COMPONENT_HEIGHT_INVALID = -1.0;
+constexpr double DEFAULT_WIDTH = 100.0;
+constexpr double DEFAULT_HEIGHT = 110.0;
+constexpr Dimension DEFAULT_WIDTH_DIMENSION = Dimension(DEFAULT_WIDTH);
+constexpr Dimension DEFAULT_HEIGHT_DIMENSION = Dimension(DEFAULT_HEIGHT);
+const SizeF CONTENT_SIZE = SizeF(400.0, 500.0);
+const OffsetF CONTENT_OFFSET = OffsetF(50.0, 60.0);
+constexpr Color NORMAL_COLOR = Color(0xff0000ff);
+constexpr Color ERROR_COLOR = Color();
+const std::optional<int32_t> INDICATOR_TYPE_TICK = 0;
+constexpr double NUM_TWO = 2.0;
+const SizeF CHILD_FRAME_SIZE = SizeF(50.0, 50.0);
+constexpr Dimension FOCUSBGSIZE = 2.0_vp;
+const int32_t VERSION_TWELVE = 12;
+const SizeF TEST_SIZE_0 = SizeF(0.0f, 0.0f);
+const SizeF TEST_SIZE_100_200 = SizeF(100.0f, 200.0f);
+const SizeF TEST_SIZE_100 = SizeF(100.0f, 100.0f);
+const SizeF TEST_SIZE_200 = SizeF(200.0f, 200.0f);
+const SizeF TEST_SIZE_50 = SizeF(50.0f, 50.0f);
+const SizeF TEST_SIZE_60 = SizeF(60.0f, 60.0f);
+constexpr float TEST_WIDTH_50 = 50.0f;
+constexpr float TEST_HEIGHT_60 = 60.0f;
+} // namespace
+
+class RadioTestNg : public TestNG {
+public:
+    static void SetUpTestSuite();
+    static void TearDownTestSuite();
+    static RadioBuilderFunc RadioBuilder();
+};
+
+void RadioTestNg::SetUpTestSuite()
+{
+    MockPipelineContext::SetUp();
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
+        auto radioTheme = AceType::MakeRefPtr<RadioTheme>();
+        radioTheme->hotZoneHorizontalPadding_ = HORIZONTAL_PADDING;
+        radioTheme->hotZoneVerticalPadding_ = VERTICAL_PADDING;
+        radioTheme->defaultWidth_ = DEFAULT_WIDTH_DIMENSION;
+        radioTheme->defaultHeight_ = DEFAULT_HEIGHT_DIMENSION;
+        return radioTheme;
+    });
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    MockContainer::SetUp();
+}
+
+void RadioTestNg::TearDownTestSuite()
+{
+    MockPipelineContext::GetCurrent()->themeManager_ = nullptr;
+    MockPipelineContext::TearDown();
+    MockContainer::TearDown();
+}
+
+RadioBuilderFunc RadioTestNg::RadioBuilder()
+{
+    return []() {
+        ColumnModelNG colModel;
+        colModel.Create(Dimension(0), nullptr, "");
+        ViewAbstract::SetWidth(CalcLength(10.f));
+        ViewAbstract::SetHeight(CalcLength(10.f));
+    };
+}
+
+/**
+ * @tc.name: RadioPaintPropertyTest001
+ * @tc.desc: Set Radio value into RadioPaintProperty and get it.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintPropertyTest001, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(CHECKED);
+    radioModelNG.SetWidth(WIDTH);
+    radioModelNG.SetHeight(HEIGHT);
+    NG::PaddingProperty newPadding(
+        { NG::CalcLength(0.0_vp), NG::CalcLength(0.0_vp), NG::CalcLength(0.0_vp), NG::CalcLength(0.0_vp) });
+    radioModelNG.SetPadding(PADDING, newPadding);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheck(), CHECKED);
+}
+
+/**
+ * @tc.name: RadioPaintPropertyTest002
+ * @tc.desc: Test SetCheckedBackgroundColor when the Radio is checked.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintPropertyTest002, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    radioModelNG.SetCheckedBackgroundColor(NORMAL_COLOR);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheckedBackgroundColorValue(), NORMAL_COLOR);
+
+    RadioModelNG radioModelNG2;
+    radioModelNG2.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG2.SetChecked(true);
+    radioModelNG2.SetCheckedBackgroundColor(ERROR_COLOR);
+    auto frameNode2 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode2, nullptr);
+    auto radioPaintProperty2 = frameNode2->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty2, nullptr);
+    EXPECT_EQ(radioPaintProperty2->GetRadioCheckedBackgroundColorValue(), ERROR_COLOR);
+}
+
+/**
+ * @tc.name: RadioPaintPropertyTest003
+ * @tc.desc: Test SetUncheckedBorderColor when the Radio is unchecked.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintPropertyTest003, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(false);
+    radioModelNG.SetUncheckedBorderColor(NORMAL_COLOR);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioUncheckedBorderColorValue(), NORMAL_COLOR);
+
+    RadioModelNG radioModelNG2;
+    radioModelNG2.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG2.SetChecked(false);
+    radioModelNG2.SetUncheckedBorderColor(ERROR_COLOR);
+    auto frameNode2 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode2, nullptr);
+    auto radioPaintProperty2 = frameNode2->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty2, nullptr);
+    EXPECT_EQ(radioPaintProperty2->GetRadioUncheckedBorderColorValue(), ERROR_COLOR);
+}
+
+/**
+ * @tc.name: RadioPaintPropertyTest006
+ * @tc.desc: Test SetIndicatorColor when the Radio is select.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintPropertyTest004, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    radioModelNG.SetIndicatorColor(NORMAL_COLOR);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioIndicatorColorValue(), NORMAL_COLOR);
+
+    RadioModelNG radioModelNG2;
+    radioModelNG2.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG2.SetChecked(true);
+    radioModelNG2.SetIndicatorColor(ERROR_COLOR);
+    auto frameNode2 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode2, nullptr);
+    auto radioPaintProperty2 = frameNode2->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty2, nullptr);
+    EXPECT_EQ(radioPaintProperty2->GetRadioIndicatorColorValue(), ERROR_COLOR);
+}
+
+/**
+ * @tc.name: RadioPaintPropertyTest005
+ * @tc.desc: Test SetRadioIndicator.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintPropertyTest005, TestSize.Level0)
+{
+    int32_t settingApiVersion = 12;
+    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
+    MockContainer::Current()->SetApiTargetVersion(settingApiVersion);
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetRadioIndicator(INDICATOR_TYPE_TICK.value());
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioIndicator(), INDICATOR_TYPE_TICK);
+    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
+}
+
+/**
+ * @tc.name: RadioEventHubPropertyTest002
+ * @tc.desc: Set Radio value into RadioEventHub and get it.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioEventHubPropertyTest002, TestSize.Level0)
+{
+    /**
+     * @tc.cases: case1. RadioPattern can Create without value or group.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    EXPECT_TRUE(eventHub->GetValue().empty());
+    EXPECT_TRUE(eventHub->GetGroup().empty());
+    /**
+     * @tc.cases: case2. RadioPattern can Create with value and group.
+     */
+    RadioModelNG radioModelNG2;
+    radioModelNG2.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode2 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto eventHub2 = frameNode2->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(eventHub2, nullptr);
+    EXPECT_EQ(eventHub2->GetValue(), NAME);
+    EXPECT_EQ(eventHub2->GetGroup(), GROUP_NAME);
+}
+
+/**
+ * @tc.name: RadioEventHubPropertyTest003
+ * @tc.desc: Set Radio value into RadioEventHub and get it.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioEventHubPropertyTest003, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    EXPECT_EQ(eventHub->GetValue(), "");
+    EXPECT_EQ(eventHub->GetGroup(), GROUP_NAME);
+}
+
+/**
+ * @tc.name: RadioEventHubPropertyTest004
+ * @tc.desc: Set Radio value into RadioEventHub and get it.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioEventHubPropertyTest004, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, std::nullopt, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    EXPECT_EQ(eventHub->GetValue(), NAME);
+    EXPECT_EQ(eventHub->GetGroup(), "");
+}
+
+/**
+ * @tc.name: RadioEventTest003
+ * @tc.desc: Test Radio onChange event.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioEventTest003, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    bool isChecked = false;
+    auto onChange = [&isChecked](bool select) { isChecked = select; };
+    radioModelNG.SetOnChange(onChange);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto eventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(eventHub, nullptr);
+    eventHub->UpdateChangeEvent(true);
+    EXPECT_EQ(isChecked, true);
+}
+
+/**
+ * @tc.name: RadioPatternTest004
+ * @tc.desc: Test Radio onModifyDone.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest004, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    EXPECT_EQ(frameNode->GetLayoutProperty()->GetMarginProperty()->left.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(frameNode->GetLayoutProperty()->GetMarginProperty()->right.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(frameNode->GetLayoutProperty()->GetMarginProperty()->top.value(), CalcLength(VERTICAL_PADDING));
+    EXPECT_EQ(frameNode->GetLayoutProperty()->GetMarginProperty()->bottom.value(), CalcLength(VERTICAL_PADDING));
+    pattern->SetPreGroup(GROUP_NAME);
+    frameNode->MarkModifyDone();
+    pattern->SetPreGroup(GROUP_NAME_CHANGE);
+    frameNode->MarkModifyDone();
+}
+
+/**
+ * @tc.name: RadioPatternTest005
+ * @tc.desc: Test UpdateUncheckStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest005, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    bool isChecked = false;
+    auto onChange = [&isChecked](bool select) { isChecked = select; };
+    radioModelNG.SetOnChange(onChange);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->preCheck_ = false;
+    pattern->UpdateUncheckStatus(frameNode);
+    EXPECT_EQ(isChecked, false);
+}
+
+/**
+ * @tc.name: RadioPatternTest006
+ * @tc.desc: Test UpdateUncheckStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest006, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    bool isChecked = false;
+    auto onChange = [&isChecked](bool select) { isChecked = select; };
+    radioModelNG.SetOnChange(onChange);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheckValue(), CHECKED);
+
+    /**
+     * @tc.cases: case. cover branch preCheck_ is true.
+     */
+    pattern->preCheck_ = true;
+    pattern->UpdateUncheckStatus(frameNode);
+    EXPECT_NE(radioPaintProperty->GetRadioCheckValue(), CHECKED);
+}
+
+/**
+ * @tc.name: RadioPatternTest007
+ * @tc.desc: Test UpdateGroupCheckStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest007, TestSize.Level0)
+{
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto stageManager = pipelineContext->GetStageManager();
+    CHECK_NULL_VOID(stageManager);
+    RadioModelNG radioModelNG0;
+    radioModelNG0.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG0.SetChecked(true);
+    bool isChecked0 = false;
+    auto onChange0 = [&isChecked0](bool select) { isChecked0 = select; };
+    radioModelNG0.SetOnChange(onChange0);
+    auto frameNode0 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode0, nullptr);
+    frameNode0->MarkModifyDone();
+    auto pattern0 = frameNode0->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern0, nullptr);
+
+    auto radioPaintProperty = frameNode0->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheckValue(), CHECKED);
+    auto pageNode = stageManager->GetPageById(frameNode0->GetPageId());
+    ASSERT_EQ(pageNode, nullptr);
+    auto pageEventHub = AceType::MakeRefPtr<NG::PageEventHub>();
+    auto groupManager = pageEventHub->GetGroupManager();
+    pattern0->UpdateGroupCheckStatus(frameNode0, groupManager, false);
+    EXPECT_FALSE(radioPaintProperty->GetRadioCheckValue());
+}
+
+/**
+ * @tc.name: RadioPatternTest008
+ * @tc.desc: Test UpdateGroupCheckStatus.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest008, TestSize.Level0)
+{
+    auto pipelineContext = PipelineContext::GetCurrentContext();
+    CHECK_NULL_VOID(pipelineContext);
+    auto stageManager = pipelineContext->GetStageManager();
+    CHECK_NULL_VOID(stageManager);
+    auto frameNode0 =
+        FrameNode::GetOrCreateFrameNode(V2::RADIO_ETS_TAG, 0, []() { return AceType::MakeRefPtr<RadioPattern>(); });
+    ViewStackProcessor::GetInstance()->Push(frameNode0);
+    auto eventHub0 = frameNode0->GetEventHub<NG::RadioEventHub>();
+    CHECK_NULL_VOID(eventHub0);
+    eventHub0->SetValue(NAME);
+    eventHub0->SetGroup(GROUP_NAME);
+    RadioModelNG radioModelNG0;
+    radioModelNG0.SetChecked(false);
+    bool isChecked0 = false;
+    auto onChange0 = [&isChecked0](bool select) { isChecked0 = select; };
+    radioModelNG0.SetOnChange(onChange0);
+    frameNode0->MarkModifyDone();
+    auto pattern0 = frameNode0->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern0, nullptr);
+    pattern0->UpdateState();
+
+    auto frameNode1 =
+        FrameNode::GetOrCreateFrameNode(V2::RADIO_ETS_TAG, 1, []() { return AceType::MakeRefPtr<RadioPattern>(); });
+    ViewStackProcessor::GetInstance()->Push(frameNode1);
+    auto eventHub1 = frameNode1->GetEventHub<NG::RadioEventHub>();
+    CHECK_NULL_VOID(eventHub1);
+    eventHub1->SetValue(NAME1);
+    eventHub1->SetGroup(GROUP_NAME1);
+    RadioModelNG radioModelNG1;
+    radioModelNG1.SetChecked(true);
+    bool isChecked1 = false;
+    auto onChange1 = [&isChecked1](bool select) { isChecked1 = select; };
+    radioModelNG1.SetOnChange(onChange1);
+    frameNode1->MarkModifyDone();
+    auto pattern1 = frameNode1->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern1, nullptr);
+    pattern1->UpdateState();
+
+    auto radioPaintProperty0 = frameNode0->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty0, nullptr);
+    EXPECT_NE(radioPaintProperty0->GetRadioCheckValue(), CHECKED);
+    auto pageNode = stageManager->GetPageById(frameNode0->GetPageId());
+    auto pageEventHub = AceType::MakeRefPtr<NG::PageEventHub>();
+    auto groupManager = pageEventHub->GetGroupManager();
+    pattern0->UpdateGroupCheckStatus(frameNode0, groupManager, true);
+    auto radioPaintProperty1 = frameNode1->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty1, nullptr);
+    EXPECT_EQ(radioPaintProperty1->GetRadioCheckValue(), CHECKED);
+}
+
+/**
+ * @tc.name: RadioPatternTest009
+ * @tc.desc: Test InitClickEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest009, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->InitClickEvent();
+    ASSERT_NE(pattern->clickListener_, nullptr);
+    pattern->InitClickEvent();
+}
+
+/**
+ * @tc.name: RadioPatternTest010
+ * @tc.desc: Test InitTouchEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest010, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->InitTouchEvent();
+    ASSERT_NE(pattern->touchListener_, nullptr);
+    pattern->InitTouchEvent();
+}
+
+/**
+ * @tc.name: RadioPatternTest011
+ * @tc.desc: Test InitMouseEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest011, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->InitMouseEvent();
+    ASSERT_NE(pattern->mouseEvent_, nullptr);
+    pattern->InitMouseEvent();
+}
+
+/**
+ * @tc.name: RadioPatternTest012
+ * @tc.desc: Test OnClick.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest012, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(false);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->UpdateState();
+    pattern->OnClick();
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    auto select1 = radioPaintProperty->GetRadioCheckValue();
+    EXPECT_EQ(select1, true);
+}
+
+/**
+ * @tc.name: RadioPatternTest013
+ * @tc.desc: Test OnClick.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest013, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->UpdateState();
+    pattern->OnClick();
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    auto select1 = radioPaintProperty->GetRadioCheckValue();
+    EXPECT_EQ(select1, true);
+}
+
+/**
+ * @tc.name: RadioPatternTest014
+ * @tc.desc: Test OnClick.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest014, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->OnClick();
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    auto select1 = radioPaintProperty->GetRadioCheckValue();
+    EXPECT_EQ(select1, true);
+}
+
+/**
+ * @tc.name: RadioPatternTest015
+ * @tc.desc: Test OnClick.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest015, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->UpdateState();
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    radioPaintProperty->ResetRadioCheck();
+    pattern->OnClick();
+    auto select1 = radioPaintProperty->GetRadioCheckValue();
+    EXPECT_TRUE(select1);
+}
+
+/**
+ * @tc.name: RadioPatternTest016
+ * @tc.desc: Test OnClick.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest016, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    radioPaintProperty->ResetRadioCheck();
+    pattern->OnClick();
+    auto select1 = radioPaintProperty->GetRadioCheckValue();
+    EXPECT_TRUE(select1);
+}
+
+/**
+ * @tc.name: RadioPatternTest019
+ * @tc.desc: Test OnTouchDown and OnTouchUp.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest019, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->InitMouseEvent();
+    pattern->HandleMouseEvent(false);
+    ASSERT_EQ(pattern->isHover_, false);
+    pattern->OnTouchDown();
+    EXPECT_EQ(pattern->touchHoverType_, TouchHoverAnimationType::PRESS);
+    EXPECT_TRUE(pattern->isTouch_);
+    pattern->OnTouchUp();
+    EXPECT_EQ(pattern->touchHoverType_, TouchHoverAnimationType::NONE);
+    EXPECT_FALSE(pattern->isTouch_);
+}
+
+/**
+ * @tc.name: RadioPatternTest020
+ * @tc.desc: Test OnTouchDown   OnTouchUp.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest020, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    pattern->InitMouseEvent();
+    pattern->HandleMouseEvent(true);
+    EXPECT_TRUE(pattern->isHover_);
+    pattern->OnTouchDown();
+    EXPECT_EQ(pattern->touchHoverType_, TouchHoverAnimationType::HOVER_TO_PRESS);
+    EXPECT_TRUE(pattern->isTouch_);
+    pattern->OnTouchUp();
+    EXPECT_EQ(pattern->touchHoverType_, TouchHoverAnimationType::PRESS_TO_HOVER);
+    EXPECT_FALSE(pattern->isTouch_);
+}
+
+/**
+ * @tc.name: RadioPatternTest021
+ * @tc.desc: Test Radio OnModifyDone default margin.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest021, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    EXPECT_NE(frameNode, nullptr);
+
+    auto radioPattern = frameNode->GetPattern<RadioPattern>();
+    EXPECT_NE(radioPattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+
+    MarginProperty margin;
+    margin.left = CalcLength(HORIZONTAL_PADDING);
+    layoutProperty->UpdateMargin(margin); // GetMarginProperty
+
+    radioPattern->OnModifyDone();
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->left.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->right.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->top.value(), CalcLength(VERTICAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->bottom.value(), CalcLength(VERTICAL_PADDING));
+
+    MarginProperty margin1;
+    margin1.right = CalcLength(HORIZONTAL_PADDING);
+    layoutProperty->UpdateMargin(margin1); // GetMarginProperty
+
+    radioPattern->OnModifyDone();
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->right.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->left.value(), CalcLength(HORIZONTAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->top.value(), CalcLength(VERTICAL_PADDING));
+    EXPECT_EQ(layoutProperty->GetMarginProperty()->bottom.value(), CalcLength(VERTICAL_PADDING));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest001
+ * @tc.desc: Verify that RadioLayoutAlgorithm can correctly InitializeParam.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest001, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    radioLayoutAlgorithm.InitializeParam(frameNode);
+    EXPECT_EQ(radioLayoutAlgorithm.horizontalPadding_, HORIZONTAL_PADDING.ConvertToPx());
+    EXPECT_EQ(radioLayoutAlgorithm.verticalPadding_, VERTICAL_PADDING.ConvertToPx());
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest002
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when Width and height are set in the front end.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest002, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper(frameNode, nullptr, nullptr);
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH);
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(COMPONENT_WIDTH, COMPONENT_WIDTH));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest003
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when The front end only sets width.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest003, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper(frameNode, nullptr, nullptr);
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty<LayoutProperty>();
+    ASSERT_NE(layoutProperty, nullptr);
+    layoutProperty->calcLayoutConstraint_ = std::make_unique<MeasureProperty>();
+    layoutProperty->calcLayoutConstraint_->selfIdealSize->Reset();
+    layoutProperty->calcLayoutConstraint_->selfIdealSize->width_ = CalcLength(COMPONENT_WIDTH);
+    auto context = frameNode->GetContext();
+    ASSERT_NE(context, nullptr);
+    auto theme = context->GetTheme<RadioTheme>();
+    pattern->GetChildContentSize(theme);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(COMPONENT_WIDTH, COMPONENT_WIDTH));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest004
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when The front end only sets height.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest004, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper(frameNode, nullptr, nullptr);
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(COMPONENT_HEIGHT, COMPONENT_HEIGHT));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest005
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize from the theme,
+             when Width and height are not set in the front end.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest005, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper(frameNode, nullptr, AccessibilityManager::MakeRefPtr<LayoutProperty>());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.maxSize = SizeF(1000.0, 1000.0);
+    layoutConstraintSize.minSize = SizeF(0, 0);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(radioLayoutAlgorithm.horizontalPadding_, HORIZONTAL_PADDING.ConvertToPx());
+    EXPECT_EQ(radioLayoutAlgorithm.verticalPadding_, VERTICAL_PADDING.ConvertToPx());
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest006
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when Width and height are set in the front end.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest006, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode, nullptr, AccessibilityManager::MakeRefPtr<LayoutProperty>());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH_INVALID);
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT_INVALID);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(0, 0));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest007
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when The front end only sets width.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest007, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode, nullptr, AccessibilityManager::MakeRefPtr<LayoutProperty>());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH_INVALID);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(0, 0));
+}
+
+/**
+ * @tc.name: RadioLayoutAlgorithmTest008
+ * @tc.desc: Verify that RadioLayoutAlgorithm's MeasureContent can get contentSize
+             when The front end only sets height.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioLayoutAlgorithmTest008, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode, nullptr, AccessibilityManager::MakeRefPtr<LayoutProperty>());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT_INVALID);
+    auto size = radioLayoutAlgorithm.MeasureContent(layoutConstraintSize, &layoutWrapper);
+    ASSERT_NE(size, std::nullopt);
+    EXPECT_EQ(size.value(), SizeF(0, 0));
+}
+
+/**
+ * @tc.name: RadioPaintMethodTest013
+ * @tc.desc: Verify that radioModifier can correctly InitializeParam.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPaintMethodTest013, TestSize.Level0)
+{
+    /**
+     * @tc.steps: MockContainer.apiTargetVersion_ = VERSION_TWELVE.
+     * @tc.steps: set radio theme
+     */
+    MockContainer::SetUp();
+    MockContainer::Current()->SetApiTargetVersion(VERSION_TWELVE);
+
+    auto themeManager = AceType::MakeRefPtr<MockThemeManager>();
+    EXPECT_CALL(*themeManager, GetTheme(_)).WillRepeatedly([](ThemeType type) -> RefPtr<Theme> {
+        auto radioTheme = AceType::MakeRefPtr<RadioTheme>();
+        radioTheme->focusedBgUnchecked_ = NORMAL_COLOR;
+        radioTheme->focusedRingUnchecked_ = NORMAL_COLOR;
+        radioTheme->focusedBgColor_ = NORMAL_COLOR;
+        radioTheme->sizeFocusBg_ = FOCUSBGSIZE;
+        return radioTheme;
+    });
+    MockPipelineContext::GetCurrent()->SetThemeManager(themeManager);
+    auto radioModifier = AceType::MakeRefPtr<RadioModifier>();
+    RadioPaintMethod radioPaintMethod(radioModifier);
+    radioPaintMethod.radioModifier_->InitializeParam();
+    EXPECT_EQ(radioPaintMethod.radioModifier_->focusedBgUnchecked_, NORMAL_COLOR);
+    EXPECT_EQ(radioPaintMethod.radioModifier_->focusedRingUnchecked_, NORMAL_COLOR);
+    EXPECT_EQ(radioPaintMethod.radioModifier_->focusedBgColor_, NORMAL_COLOR);
+    EXPECT_EQ(radioPaintMethod.radioModifier_->sizeFocused_, FOCUSBGSIZE);
+}
+
+/**
+ * @tc.name: RadioAccessibilityPropertyTestNg001
+ * @tc.desc: Test the IsCheckable property of Radio.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioAccessibilityPropertyTestNg001, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto accessibility = frameNode->GetAccessibilityProperty<RadioAccessibilityProperty>();
+    ASSERT_NE(accessibility, nullptr);
+    EXPECT_TRUE(accessibility->IsCheckable());
+}
+
+/**
+ * @tc.name: RadioAccessibilityPropertyTestNg002
+ * @tc.desc: Test the IsChecked property of Radio.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioAccessibilityPropertyTestNg002, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto accessibility = frameNode->GetAccessibilityProperty<RadioAccessibilityProperty>();
+    ASSERT_NE(accessibility, nullptr);
+    EXPECT_FALSE(accessibility->IsChecked());
+    auto paintProperty = frameNode->GetPaintProperty<NG::RadioPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    paintProperty->UpdateRadioCheck(true);
+    EXPECT_TRUE(accessibility->IsChecked());
+
+    paintProperty->UpdateRadioCheck(false);
+    EXPECT_FALSE(accessibility->IsChecked());
+}
+
+/**
+ * @tc.name: RadioAccessibilityPropertyTestNg003
+ * @tc.desc: Test the Text property of Radio.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioAccessibilityPropertyTestNg003, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    auto radioEventHub = frameNode->GetEventHub<NG::RadioEventHub>();
+    ASSERT_NE(radioEventHub, nullptr);
+    radioEventHub->SetValue(VALUE);
+
+    auto accessibility = frameNode->GetAccessibilityProperty<RadioAccessibilityProperty>();
+    ASSERT_NE(accessibility, nullptr);
+    EXPECT_EQ(accessibility->GetText(), VALUE);
+}
+
+/**
+ * @tc.name: RadioPatternTest022
+ * @tc.desc: Test Radio OnKeyEvent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest022, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+
+    auto radioPattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(radioPattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+
+    auto eventHub = frameNode->GetFocusHub();
+    ASSERT_NE(eventHub, nullptr);
+    /**
+     * test event.action != KeyAction::DOWN
+     */
+    KeyEvent keyEventOne(KeyCode::KEY_A, KeyAction::UP);
+    eventHub->ProcessOnKeyEventInternal(keyEventOne);
+    /**
+     * test event.action == KeyAction::DOWN and event.code == KeyCode::KEY_ENTER
+     */
+    KeyEvent keyEventTwo(KeyCode::KEY_A, KeyAction::DOWN);
+    eventHub->ProcessOnKeyEventInternal(keyEventTwo);
+    /**
+     * test event.action == KeyAction::DOWN and event.code != KeyCode::KEY_ENTER
+     */
+    KeyEvent keyEventThr(KeyCode::KEY_ENTER, KeyAction::DOWN);
+    eventHub->ProcessOnKeyEventInternal(keyEventThr);
+}
+
+/**
+ * @tc.name: RadioPatternTest023
+ * @tc.desc: Test Radio SetInnerFocusPaintRectCallback.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest023, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+
+    auto radioPattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(radioPattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+
+    auto eventHub = frameNode->GetFocusHub();
+    ASSERT_NE(eventHub, nullptr);
+
+    RoundRect paintRect;
+    eventHub->getInnerFocusRectFunc_(paintRect);
+}
+
+/**
+ * @tc.name: RadioPatternTest024
+ * @tc.desc: Test Radio Pattern Methods.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioPatternTest024, TestSize.Level0)
+{
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    frameNode->MarkModifyDone();
+
+    auto radioPattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(radioPattern, nullptr);
+    auto layoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(layoutProperty, nullptr);
+    auto geometryNode = frameNode->GetGeometryNode();
+    ASSERT_NE(geometryNode, nullptr);
+    geometryNode->SetContentSize(CONTENT_SIZE);
+    geometryNode->SetContentOffset(CONTENT_OFFSET);
+
+    RefPtr<LayoutWrapperNode> layoutWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(frameNode, geometryNode, layoutProperty);
+    ASSERT_NE(layoutWrapper, nullptr);
+    /**
+     * cover OnDirtyLayoutWrapperSwap
+     */
+    DirtySwapConfig dirtySwapConfig;
+    auto result = radioPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, dirtySwapConfig);
+    EXPECT_TRUE(result);
+    /**
+     * cover AddHotZoneRect
+     */
+    radioPattern->OnDirtyLayoutWrapperSwap(layoutWrapper, dirtySwapConfig);
+    EXPECT_EQ(frameNode->GetOrCreateGestureEventHub()->isResponseRegion_, true);
+    /**
+     * cover RemoveLastHotZoneRect
+     */
+    radioPattern->RemoveLastHotZoneRect();
+    EXPECT_EQ(frameNode->GetOrCreateGestureEventHub()->isResponseRegion_, false);
+}
+
+/**
+ * @tc.name: RadioReverseLayout001
+ * @tc.desc: Test for layout method of RadioLayoutAlgorithm to get the offset in the RTL scene,
+             when Width and height are not set in the front end.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioReverseLayout001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Init Radio node and add Image child.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioLayoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(radioLayoutProperty, nullptr);
+    radioLayoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+
+    int32_t settingApiVersion = 12;
+    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
+    MockContainer::Current()->SetApiTargetVersion(settingApiVersion);
+    frameNode->MarkModifyDone();
+
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
+    auto childNode = pattern->builderChildNode_;
+    ASSERT_NE(childNode, nullptr);
+    auto hostGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper(frameNode, hostGeometryNode, radioLayoutProperty);
+    auto childGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    RefPtr<LayoutWrapperNode> childWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(childNode, childGeometryNode, childNode->GetLayoutProperty());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.maxSize = SizeF(1000.0, 1000.0);
+    layoutConstraintSize.minSize = SizeF(0, 0);
+    ASSERT_NE(layoutWrapper.layoutProperty_, nullptr);
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraintSize);
+    layoutWrapper.AppendChild(childWrapper);
+
+    /**
+     * @tc.steps: step2. Measure Radio node Content size and child size.
+     */
+    layoutWrapper.GetGeometryNode()->SetFrameSize(CONTENT_SIZE);
+    childWrapper->GetGeometryNode()->SetFrameSize(CHILD_FRAME_SIZE);
+
+    /**
+     * @tc.steps: step3. layout child node.
+     */
+    NG::OffsetF child_offset;
+    auto align = Alignment::CENTER;
+    child_offset.SetX((1.0 + align.GetHorizontal()) * (CONTENT_SIZE.Width() - CHILD_FRAME_SIZE.Width()) / NUM_TWO);
+    child_offset.SetY((1.0 + align.GetVertical()) * (CONTENT_SIZE.Height() - CHILD_FRAME_SIZE.Height()) / NUM_TWO);
+    radioLayoutAlgorithm.Layout(&layoutWrapper);
+    EXPECT_TRUE(IsEqual(childWrapper->GetGeometryNode()->GetMarginFrameOffset(), child_offset));
+    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
+}
+
+/**
+ * @tc.name: RadioReverseLayout002
+ * @tc.desc: Test for layout method of RadioLayoutAlgorithm to get the offset in the RTL scene,
+             when Width and height are set in the front end.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioReverseLayout002, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Init Radio node and add Image child.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioLayoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(radioLayoutProperty, nullptr);
+    radioLayoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+
+    int32_t settingApiVersion = 12;
+    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
+    MockContainer::Current()->SetApiTargetVersion(settingApiVersion);
+    frameNode->MarkModifyDone();
+
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
+    auto childNode = pattern->builderChildNode_;
+    ASSERT_NE(childNode, nullptr);
+    auto hostGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper(frameNode, hostGeometryNode, radioLayoutProperty);
+    auto childGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    RefPtr<LayoutWrapperNode> childWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(childNode, childGeometryNode, childNode->GetLayoutProperty());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.maxSize = SizeF(1000.0, 1000.0);
+    layoutConstraintSize.minSize = SizeF(0, 0);
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH);
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT);
+    ASSERT_NE(layoutWrapper.layoutProperty_, nullptr);
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraintSize);
+    layoutWrapper.AppendChild(childWrapper);
+
+    /**
+     * @tc.steps: step2. Measure Radio node Content size and child size.
+     */
+    layoutWrapper.GetGeometryNode()->SetFrameSize(CONTENT_SIZE);
+    childWrapper->GetGeometryNode()->SetFrameSize(CHILD_FRAME_SIZE);
+
+    /**
+     * @tc.steps: step3. layout child node.
+     */
+    NG::OffsetF child_offset;
+    auto align = Alignment::CENTER;
+    child_offset.SetX((1.0 + align.GetHorizontal()) * (CONTENT_SIZE.Width() - CHILD_FRAME_SIZE.Width()) / NUM_TWO);
+    child_offset.SetY((1.0 + align.GetVertical()) * (CONTENT_SIZE.Height() - CHILD_FRAME_SIZE.Height()) / NUM_TWO);
+    radioLayoutAlgorithm.Layout(&layoutWrapper);
+    EXPECT_TRUE(IsEqual(childWrapper->GetGeometryNode()->GetMarginFrameOffset(), child_offset));
+    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
+}
+
+/**
+ * @tc.name: RadioReverseLayout003
+ * @tc.desc: Test for layout method of RadioLayoutAlgorithm to get the offset in the RTL scene,
+             when Width and height are set in the front end and child node is customBuilder.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioReverseLayout003, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Init Radio node and add customNode child.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto radioFunc = RadioBuilder();
+    radioModelNG.SetBuilder(std::move(radioFunc));
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto radioLayoutProperty = frameNode->GetLayoutProperty();
+    ASSERT_NE(radioLayoutProperty, nullptr);
+    radioLayoutProperty->UpdateLayoutDirection(TextDirection::RTL);
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    int32_t CustomIndicatorType = 2;
+    radioPaintProperty->UpdateRadioIndicator(CustomIndicatorType);
+
+    int32_t settingApiVersion = 12;
+    int32_t backupApiVersion = MockContainer::Current()->GetApiTargetVersion();
+    MockContainer::Current()->SetApiTargetVersion(settingApiVersion);
+    frameNode->MarkModifyDone();
+
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    auto pipeline = frameNode->GetContext();
+    ASSERT_NE(pipeline, nullptr);
+    pipeline->FlushBuildFinishCallbacks();
+    auto childNode = pattern->builderChildNode_;
+    ASSERT_NE(childNode, nullptr);
+    auto hostGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    LayoutWrapperNode layoutWrapper(frameNode, hostGeometryNode, radioLayoutProperty);
+    auto childGeometryNode = AceType::MakeRefPtr<GeometryNode>();
+    RefPtr<LayoutWrapperNode> childWrapper =
+        AceType::MakeRefPtr<LayoutWrapperNode>(childNode, childGeometryNode, childNode->GetLayoutProperty());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF layoutConstraintSize;
+    layoutConstraintSize.maxSize = SizeF(1000.0, 1000.0);
+    layoutConstraintSize.minSize = SizeF(0, 0);
+    layoutConstraintSize.selfIdealSize.SetWidth(COMPONENT_WIDTH);
+    layoutConstraintSize.selfIdealSize.SetHeight(COMPONENT_HEIGHT);
+    ASSERT_NE(layoutWrapper.layoutProperty_, nullptr);
+    layoutWrapper.GetLayoutProperty()->UpdateLayoutConstraint(layoutConstraintSize);
+    layoutWrapper.AppendChild(childWrapper);
+
+    /**
+     * @tc.steps: step2. Measure Radio node Content size and child size.
+     */
+    layoutWrapper.GetGeometryNode()->SetFrameSize(CONTENT_SIZE);
+    childWrapper->GetGeometryNode()->SetFrameSize(CHILD_FRAME_SIZE);
+
+    /**
+     * @tc.steps: step3. layout child node.
+     */
+    NG::OffsetF child_offset;
+    auto align = Alignment::CENTER;
+    child_offset.SetX((1.0 + align.GetHorizontal()) * (CONTENT_SIZE.Width() - CHILD_FRAME_SIZE.Width()) / NUM_TWO);
+    child_offset.SetY((1.0 + align.GetVertical()) * (CONTENT_SIZE.Height() - CHILD_FRAME_SIZE.Height()) / NUM_TWO);
+    radioLayoutAlgorithm.Layout(&layoutWrapper);
+    EXPECT_TRUE(IsEqual(childWrapper->GetGeometryNode()->GetMarginFrameOffset(), child_offset));
+    MockContainer::Current()->SetApiTargetVersion(backupApiVersion);
+}
+
+/**
+ * @tc.name: LayoutPolicyIsMatchParentTest001
+ * @tc.desc: Test Radio LayoutPolicyIsMatchParent.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, LayoutPolicyIsMatchParentTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. call LayoutPolicyIsMatchParent function.
+     * @tc.expected: step1. ret is equal to TEST_SIZE_0.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    LayoutWrapperNode layoutWrapper =
+        LayoutWrapperNode(frameNode, nullptr, AccessibilityManager::MakeRefPtr<LayoutProperty>());
+    RadioLayoutAlgorithm radioLayoutAlgorithm;
+    LayoutConstraintF contentConstraint;
+    auto layoutPolicy = radioLayoutAlgorithm.GetLayoutPolicy(&layoutWrapper);
+    auto ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_0);
+
+    /**
+     * @tc.steps: step2. set layoutPolicy->widthLayoutPolicy_ to MATCH_PARENT.
+     * @tc.expected: step2. ret is equal to TEST_SIZE_100.
+     */
+    contentConstraint.parentIdealSize.SetSize(TEST_SIZE_100_200);
+    layoutPolicy->widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_100);
+
+    /**
+     * @tc.steps: step3. set selfIdealSize.height_ to TEST_HEIGHT_60.
+     * @tc.expected: step3. ret is equal to TEST_SIZE_60.
+     */
+    contentConstraint.selfIdealSize.SetHeight(TEST_HEIGHT_60);
+    ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_60);
+
+    /**
+     * @tc.steps: step4. set layoutPolicy->heightLayoutPolicy_ to MATCH_PARENT.
+     * @tc.expected: step4. ret is equal to TEST_SIZE_200.
+     */
+    layoutPolicy->widthLayoutPolicy_ = LayoutCalPolicy::NO_MATCH;
+    layoutPolicy->heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_200);
+
+    /**
+     * @tc.steps: step5. set selfIdealSize.width_ to TEST_WIDTH_50.
+     * @tc.expected: step5. ret is equal to TEST_SIZE_50.
+     */
+    contentConstraint.selfIdealSize.SetWidth(TEST_WIDTH_50);
+    ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_50);
+
+    /**
+     * @tc.steps: step6. set widthLayoutPolicy_ and heightLayoutPolicy_ to MATCH_PARENT.
+     * @tc.expected: step6. ret is equal to TEST_SIZE_100.
+     */
+    layoutPolicy->widthLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    layoutPolicy->heightLayoutPolicy_ = LayoutCalPolicy::MATCH_PARENT;
+    ret = radioLayoutAlgorithm.LayoutPolicyIsMatchParent(contentConstraint,
+        layoutPolicy, &layoutWrapper);
+    EXPECT_EQ(ret, TEST_SIZE_100);
+}
+
+/**
+ * @tc.name: RadioCreateResetSetByUserTest001
+ * @tc.desc: Test RadioModelNG::Create resets *_SetByUser flags in RadioPaintProperty.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioCreateResetSetByUserTest001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button and retrieve its paint property.
+     * @tc.expected: step1. Frame node and paint property are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+
+    /**
+     * @tc.steps: step2. Set all *_SetByUser flags to true.
+     * @tc.expected: step2. Flags are successfully set to true.
+     */
+    radioPaintProperty->UpdateRadioCheckedBackgroundColorSetByUser(true);
+    radioPaintProperty->UpdateRadioUncheckedBorderColorSetByUser(true);
+    radioPaintProperty->UpdateRadioIndicatorColorSetByUser(true);
+
+    /**
+     * @tc.steps: step3. Create another radio button and check its paint property.
+     * @tc.expected: step3. All *_SetByUser flags are reset to false by Create().
+     */
+    ViewStackProcessor::GetInstance()->Push(frameNode);
+    radioModelNG.Create(NAME1, GROUP_NAME1, INDICATOR_TYPE_TICK);
+    auto frameNode2 = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode2, nullptr);
+
+    auto radioPaintProperty2 = frameNode2->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty2, nullptr);
+
+    EXPECT_FALSE(radioPaintProperty2->HasRadioCheckedBackgroundColorSetByUser());
+    EXPECT_FALSE(radioPaintProperty2->HasRadioUncheckedBorderColorSetByUser());
+    EXPECT_FALSE(radioPaintProperty2->HasRadioIndicatorColorSetByUser());
+}
+
+/**
+ * @tc.name: CreateWithColorResourceObj001
+ * @tc.desc: Test RadioModelNG CreateWithColorResourceObj with different resource objects.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, CreateWithColorResourceObj001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button and retrieve its pattern.
+     * @tc.expected: step1. Frame node and pattern are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Set checked background color with null resource object.
+     * @tc.expected: step2. Color value is not set (nullopt).
+     */
+    radioModelNG.CreateWithColorResourceObj(nullptr, RadioColorType::CHECKED_BACKGROUND_COLOR);
+
+    auto paintProperty = pattern->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto colorRet = paintProperty->GetRadioCheckedBackgroundColor();
+    EXPECT_FALSE(colorRet.has_value());
+
+    /**
+     * @tc.steps: step3. Create valid color resource object and set checked background color.
+     * @tc.expected: step3. Color value is set to red (#FFFF0000).
+     */
+    ResourceObjectParams param;
+    param.type = ResourceObjectParamType::STRING;
+    param.value = "#FFFF0000";
+    int32_t resourceType = static_cast<int32_t>(Kit::ResourceType::COLOR);
+    auto resObj = AceType::MakeRefPtr<ResourceObject>(
+        1001, resourceType, std::vector<ResourceObjectParams> { param }, "testBundle", "testModule", 0);
+    radioModelNG.SetCheckedBackgroundColor(Color::RED);
+    radioModelNG.CreateWithColorResourceObj(resObj, RadioColorType::CHECKED_BACKGROUND_COLOR);
+
+    colorRet = paintProperty->GetRadioCheckedBackgroundColor();
+    EXPECT_TRUE(colorRet.has_value());
+
+    /**
+     * @tc.steps: step4. Add resource to cache and reload resources.
+     * @tc.expected: step4. Resource manager reloads without errors.
+     */
+    std::string key = "radio" + RadioModelNG::ColorTypeToString(RadioColorType::CHECKED_BACKGROUND_COLOR);
+    pattern->AddResCache(key, param.value.value());
+    auto resMgr = pattern->resourceMgr_;
+    ASSERT_NE(resMgr, nullptr);
+    resMgr->ReloadResources();
+}
+
+/**
+ * @tc.name: CreateWithColorResourceObj002
+ * @tc.desc: Test RadioModelNG CreateWithColorResourceObj when resource object is not provided.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, CreateWithColorResourceObj002, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button and retrieve its pattern.
+     * @tc.expected: step1. Frame node and pattern are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = ViewStackProcessor::GetInstance()->GetMainFrameNode();
+    ASSERT_NE(frameNode, nullptr);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+
+    /**
+     * @tc.steps: step2. Set indicator color with null resource object.
+     * @tc.expected: step2. Indicator color value is not set (nullopt).
+     */
+    radioModelNG.CreateWithColorResourceObj(nullptr, RadioColorType::INDICATOR_COLOR);
+
+    auto paintProperty = pattern->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(paintProperty, nullptr);
+    auto colorRet = paintProperty->GetRadioIndicatorColor();
+    EXPECT_FALSE(colorRet.has_value());
+}
+
+/**
+ * @tc.name: RadioSetCheckedBackgroundColorSetByUser001
+ * @tc.desc: Test SetCheckedBackgroundColorSetByUser.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioSetCheckedBackgroundColorSetByUser001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button.
+     * @tc.expected: step1. Frame node and pattern are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    radioModelNG.SetCheckedBackgroundColor(NORMAL_COLOR);
+    radioModelNG.SetCheckedBackgroundColorSetByUser(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Create paintProperty and test SetOnChangeEvent.
+     * @tc.expected: step2. the property value meet expectations.
+     */
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheckedBackgroundColorValue(), NORMAL_COLOR);
+    EXPECT_EQ(radioPaintProperty->GetRadioCheckedBackgroundColorSetByUserValue(), true);
+}
+
+/**
+ * @tc.name: RadioSetUncheckedBorderColorSetByUser001
+ * @tc.desc: Test SetUncheckedBorderColorSetByUser.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioSetUncheckedBorderColorSetByUser001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button.
+     * @tc.expected: step1. Frame node and pattern are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(false);
+    radioModelNG.SetUncheckedBorderColor(NORMAL_COLOR);
+    radioModelNG.SetUncheckedBorderColorSetByUser(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Create paintProperty and test SetOnChangeEvent.
+     * @tc.expected: step2. the property value meet expectations.
+     */
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioUncheckedBorderColorValue(), NORMAL_COLOR);
+    EXPECT_EQ(radioPaintProperty->GetRadioUncheckedBorderColorSetByUserValue(), true);
+}
+
+/**
+ * @tc.name: RadioSetIndicatorColorSetByUser001
+ * @tc.desc: Test SetIndicatorColorSetByUser.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioSetIndicatorColorSetByUser001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Create a radio button.
+     * @tc.expected: step1. Frame node and pattern are created successfully.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    radioModelNG.SetChecked(true);
+    radioModelNG.SetIndicatorColor(NORMAL_COLOR);
+    radioModelNG.SetIndicatorColorSetByUser(true);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+
+    /**
+     * @tc.steps: step2. Create paintProperty and test SetOnChangeEvent.
+     * @tc.expected: step2. the property value meet expectations.
+     */
+    auto radioPaintProperty = frameNode->GetPaintProperty<RadioPaintProperty>();
+    ASSERT_NE(radioPaintProperty, nullptr);
+    EXPECT_EQ(radioPaintProperty->GetRadioIndicatorColorValue(), NORMAL_COLOR);
+    EXPECT_EQ(radioPaintProperty->GetRadioIndicatorColorSetByUserValue(), true);
+}
+
+/**
+ * @tc.name: RadioSetResponseRegion001
+ * @tc.desc: Test SetResponseRegion.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioSetResponseRegion001, TestSize.Level0)
+{
+    /**
+     * @tc.cases: case1. RadioPattern can Create without value or group.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    
+    /**
+     * @tc.steps: step2. set response region.
+     * @tc.expected: step2. function is called.
+     */
+    std::vector<DimensionRect> region = {
+        DimensionRect(Dimension(10.0), Dimension(10.0))
+    };
+    radioModelNG.SetResponseRegion(region);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+}
+
+/**
+ * @tc.name: RadioSetHoverEffect001
+ * @tc.desc: Test SetHoverEffect.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, RadioSetHoverEffect001, TestSize.Level0)
+{
+    /**
+     * @tc.cases: case1. RadioPattern can Create without value or group.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.Create(std::nullopt, std::nullopt, std::nullopt);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    
+    /**
+     * @tc.steps: step2. set hover effect.
+     * @tc.expected: step2. function is called.
+     */
+    radioModelNG.SetHoverEffect(HoverEffectType::BOARD);
+    auto pattern = frameNode->GetPattern<RadioPattern>();
+    ASSERT_NE(pattern, nullptr);
+    EXPECT_TRUE(pattern->showHoverEffect_);
+}
+
+/**
+ * @tc.name: CreateRadio001
+ * @tc.desc: Test CreateRadio.
+ * @tc.type: FUNC
+ */
+HWTEST_F(RadioTestNg, CreateRadio001, TestSize.Level0)
+{
+    /**
+     * @tc.steps: step1. Init Radio node and check name, groupName
+     * @tc.expected: step1. name  equal NAME, groupName equal GROUP_NAME.
+     */
+    RadioModelNG radioModelNG;
+    radioModelNG.CreateRadio(NAME, GROUP_NAME, INDICATOR_TYPE_TICK);
+    auto frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    auto name = RadioModelNG::GetRadioValue(AceType::RawPtr(frameNode));
+    auto groupName = RadioModelNG::GetRadioGroup(AceType::RawPtr(frameNode));
+    EXPECT_EQ(name, NAME);
+    EXPECT_EQ(groupName, GROUP_NAME);
+
+    /**
+     * @tc.steps: step1. Init Radio node and check name, groupName
+     * @tc.expected: step1. name  equal "", groupName equal "".
+     */
+    radioModelNG.CreateRadio(std::nullopt, std::nullopt, std::nullopt);
+    frameNode = AceType::DynamicCast<FrameNode>(ViewStackProcessor::GetInstance()->Finish());
+    ASSERT_NE(frameNode, nullptr);
+    name = RadioModelNG::GetRadioValue(AceType::RawPtr(frameNode));
+    groupName = RadioModelNG::GetRadioGroup(AceType::RawPtr(frameNode));
+    EXPECT_EQ(name, "");
+    EXPECT_EQ(groupName, "");
+}
+} // namespace OHOS::Ace::NG

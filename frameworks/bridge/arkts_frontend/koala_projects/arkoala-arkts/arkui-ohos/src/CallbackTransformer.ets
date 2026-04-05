@@ -1,0 +1,181 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { memo, memo_intrinsic, memo_entry, memo_stable, memo_skip } from "@koalaui/runtime/annotations"
+import { KPointer, nullptr, pointer } from '@koalaui/interop';
+import { int32 } from '@koalaui/common';
+import { IncrementalNode, GlobalStateManager } from '@koalaui/runtime';
+import { PeerNode } from "./PeerNode"
+import { ArkUIAniModule } from "arkui.ani"
+import { CustomBuilder, CustomBuilderT } from "./component/builder"
+import { CustomNodeBuilder, ArkComponentRootPeer, CustomNodeBuilderT } from "#generated"
+import { UIContextUtil } from './base/UIContextUtil';
+import { UIContext } from "@ohos/arkui/UIContext"
+import { ObserveSingleton } from './stateManagement/base/observeSingleton';
+import { ExtendableComponent } from './component/extendableComponent';
+import { ResponseType } from "./component/enums"
+import { ArkCustomComponentRootPeer } from './component/staticComponents';
+import { ElementInfo } from './stateManagement/utils';
+
+// Improve: need invert dependency: createUiDetachedRoot should be imported from @koalaui/arkoala same as in TS
+export type UIDetachedRootCreator = (
+    peerFactory: () => PeerNode,
+    @memo
+    builder: () => void
+) => PeerNode
+
+function createUiDetachedRootStub(
+    factory: () => PeerNode,
+    @memo
+    builder: () => void
+): PeerNode {
+    throw new Error("Not implemented")
+}
+
+let createUiDetachedRoot: UIDetachedRootCreator = createUiDetachedRootStub
+export function setUIDetachedRootCreator(creator: UIDetachedRootCreator): void {
+    createUiDetachedRoot = creator
+}
+
+function componentRootPeerFactory(): PeerNode {
+    return ArkComponentRootPeer.create(undefined)
+}
+
+export class FreeRootNode extends PeerNode {
+    public static current: FreeRootNode | undefined = undefined;
+    private componentRoot: ArkCustomComponentRootPeer | undefined = undefined;
+    private context: UIContext | undefined = undefined;
+    public ptr: KPointer = -1;
+    protected constructor(peerPtr: pointer, id: int32, name: string = '', flags: int32 = 0) {
+        super(peerPtr, id, name, flags)
+    }
+    public static create(): FreeRootNode {
+        const peerId = PeerNode.nextId()
+        const peerPtr = ArkUIAniModule._DetachedFreeRoot_Construct(peerId);
+        if (!peerPtr) {
+            throw new Error('create FreeRootNode fail')
+        }
+        return new FreeRootNode(peerPtr, peerId, 'FreeRootNode')
+    }
+    setComponent(component: object | undefined): void {
+        this.componentRoot?.deleteFreezeRoot(this);
+        const node = (component as ExtendableComponent | undefined)?.__getPeerNode__Internal();
+        this.componentRoot = node as ArkCustomComponentRootPeer | undefined;
+        this.componentRoot?.addFreezeRoot(this);
+    }
+    setUIContext(context: UIContext): void {
+        this.context = context;
+    }
+    freezeSelf(): void {
+        this.context?.getDetachedRootEntryManager().freezeDetachedFreeRoot(this.ptr)
+    }
+    unfreezeSelf(): void {
+        this.context?.getDetachedRootEntryManager().unfreezeDetachedFreeRoot(this.ptr)
+    }
+    setPtr(ptr: KPointer): void {
+        this.ptr = ptr;
+    }
+    compute(): void {
+        const roots = this.context?.getDetachedRootEntryManager().getDetachedRoots();
+        if (roots?.has(this.ptr)) {
+            const root = roots!.get(this.ptr);
+            root!.compute();
+        }
+    }
+    dispose(): void {
+        this.componentRoot = undefined;
+        this.context = undefined;
+        super.dispose();
+    }
+    getElementInfo(): ElementInfo | undefined {
+        try {
+            return this.componentRoot ? this.componentRoot!.getElementInfo() : super.getElementInfo();
+        } catch (e) {
+            return undefined;
+        }
+    }
+}
+
+function componentFreeRootFactory(component: object | undefined, context: UIContext): IncrementalNode {
+    const node = FreeRootNode.create();
+    node.setComponent(component);
+    node.setUIContext(context);
+    return node;
+}
+
+export class CallbackTransformer {
+    static transformFromCustomBuilder(value: CustomBuilder): CustomNodeBuilder {
+        const context = UIContextUtil.getOrCreateCurrentUIContext() as UIContext;
+        const currentRenderingComponent = ObserveSingleton.instance.renderingComponent;
+        const currentExtendableComponent = ExtendableComponent.current;
+        const currentStateManager = GlobalStateManager.instance;
+        return (parentNodeId: KPointer): KPointer => {
+            /** @memo */
+            const cb = () => {
+                const lastRenderingComponent = ObserveSingleton.instance.renderingComponent;
+                const lastExtendableComponent = ExtendableComponent.current;
+                const latestStateManager = GlobalStateManager.instance;
+                ObserveSingleton.instance.renderingComponent = currentRenderingComponent;
+                ExtendableComponent.current = currentExtendableComponent;
+                // set StateManager which is the customComponent created before invoking build function
+                GlobalStateManager.SetLocalManager(currentStateManager);
+                try {
+                    value();
+                } finally {
+                    ObserveSingleton.instance.renderingComponent = lastRenderingComponent;
+                    ExtendableComponent.current = lastExtendableComponent;
+                    // revert stateManager is using mow
+                    GlobalStateManager.SetLocalManager(latestStateManager);
+                }
+            };
+            const latestStateManager = GlobalStateManager.instance;
+            GlobalStateManager.SetLocalManager(currentStateManager);
+            const peer = context.getDetachedRootEntryManager().createUiDetachedFreeRoot(
+                () => componentFreeRootFactory(currentExtendableComponent, context), cb);
+            GlobalStateManager.SetLocalManager(latestStateManager);
+            return peer ? peer.peer.ptr : nullptr;
+        }
+    }
+    static transformToCustomBuilder(value: CustomNodeBuilder): CustomBuilder {
+        throw new Error("Not implemented")
+    }
+    static transformToPeerFromCustomBuilder(value: CustomBuilder): KPointer {
+        const peer = createUiDetachedRoot(componentRootPeerFactory, value)
+        return peer.peer.ptr
+    }
+
+    static transformFromCustomBuilderT(value: CustomBuilderT<ResponseType>): CustomNodeBuilderT<ResponseType> {
+        const context = UIContextUtil.getOrCreateCurrentUIContext() as UIContext;
+        const currentRenderingComponent = ObserveSingleton.instance.renderingComponent;
+        const currentExtendableComponent = ExtendableComponent.current;
+        return (parentNodeId: KPointer, t: ResponseType): KPointer => {
+            /** @memo */
+            const cb = () => {
+                const lastRenderingComponent = ObserveSingleton.instance.renderingComponent;
+                const lastExtendableComponent = ExtendableComponent.current;
+                ObserveSingleton.instance.renderingComponent = currentRenderingComponent;
+                ExtendableComponent.current = currentExtendableComponent;
+                try {
+                    value(t);
+                } finally {
+                    ObserveSingleton.instance.renderingComponent = lastRenderingComponent;
+                    ExtendableComponent.current = lastExtendableComponent;
+                }
+            };
+            const peer = createUiDetachedRoot(componentRootPeerFactory, cb);
+            return peer.peer.ptr;
+        }
+    }
+}

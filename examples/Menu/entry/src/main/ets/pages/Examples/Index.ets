@@ -1,0 +1,108 @@
+/*
+ * Copyright (c) 2025 - 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import router from '@ohos.router';
+
+interface Categories {
+  title:string,
+  url:string
+}
+
+@Entry
+@Component
+struct Index {
+  private items: Categories[] = [
+    { title: "示例1：弹出普通菜单", url: "pages/Examples/MenuItemDemo" },
+    { title: "示例2：弹出自定义菜单", url: "pages/Examples/MenuBuilder" },
+    { title: "示例3：长按弹出菜单", url: "pages/Examples/MenuLongPress" },
+    { title: "示例4：右键弹出指向型菜单", url: "pages/Examples/MenuRightClick" },
+    { title: "示例5：长按弹出菜单的截图预览样式", url: "pages/Examples/MenuImagePreview" },
+    { title: "示例6：长按弹出菜单的自定义预览样式", url: "pages/Examples/MenuBuilderPreview" },
+    { title: "示例7：设置状态变量弹出菜单", url: "pages/Examples/ContextMenuIsShown" },
+    { title: "示例8：设置菜单和预览的动效", url: "pages/Examples/ContextMenuTransition" },
+    { title: "示例9：设置symbol类型图标", url: "pages/Examples/MenuSymbolIcon" },
+    { title: "示例10：设置一镜到底动效", url: "pages/Examples/MenuHoverScale" },
+    { title: "示例11：菜单基本功能_0_bM内容/自定义尺寸", url: "pages/Examples/MenuTestLevel0_0" },
+    { title: "示例12：菜单基本功能_1_bCM内容/自定义尺寸", url: "pages/Examples/MenuTestLevel0_1" },
+    { title: "示例13：菜单基本功能_2_标题/subwindow", url: "pages/Examples/MenuTestLevel0_2" },
+    { title: "示例14：菜单基本功能_3_位置", url: "pages/Examples/MenuTestLevel0_3" },
+    { title: "示例15：菜单基本功能_4_避让", url: "pages/Examples/MenuTestLevel0_4" },
+    { title: "示例16：菜单基本功能_5_箭头", url: "pages/Examples/MenuTestLevel0_5" },
+    { title: "示例17：菜单基本功能_6_布局边距", url: "pages/Examples/MenuTestLevel0_6" },
+    { title: "示例18：菜单基本功能_9_radius", url: "pages/Examples/MenuTestLevel0_12" },
+    { title: "示例19：菜单基本功能_11_预览图弹出方式/类型", url: "pages/Examples/MenuTestLevel0_16" },
+    { title: "示例20：菜单基本功能_12_预览图scale/hoverScale", url: "pages/Examples/MenuTestLevel0_17" },
+    { title: "示例21：菜单基本功能_13_预览图尺寸/圆角", url: "pages/Examples/MenuTestLevel0_18" },
+    { title: "示例22：菜单基本功能_18_预览图缩放/布局", url: "pages/Examples/MenuTestLevel0_24" },
+    { title: '示例23：菜单基本功能_19_生命周期通知target/BindMenu_NonIsShow', url: 'pages/Examples/BindMenu_NonIsShow' },
+    { title: '示例24：菜单基本功能_19_生命周期通知target/BindMenu_IsShow', url: 'pages/Examples/BindMenu_IsShow' },
+    { title: '示例25：菜单基本功能_19_生命周期通知target/BindContextMenu_RightClick', url: 'pages/Examples/BindContextMenu_RightClick' },
+    { title: '示例26：菜单基本功能_19_生命周期通知target/BindContextMenu_LongPress', url: 'pages/Examples/BindContextMenu_LongPress' },
+    { title: '示例27：bindMenu图文菜单无障碍功能/MenuAccessibilityTestLevel0_0', url: 'pages/Examples/MenuAccessibilityTestLevel0_0' },
+    { title: '示例28：bindMenu菜单无障碍功能/MenuAccessibilityTestLevel0_1', url: 'pages/Examples/MenuAccessibilityTestLevel0_1' },
+    { title: '示例29：bindMenuContextMenu菜单无障碍/MenuAccessibilityTestLevel0_2', url: 'pages/Examples/MenuAccessibilityTestLevel0_2' },
+    { title: '示例30：MenuItem自有属性_MenuItemGroup入参/MenuTestLevel0_10', url: 'pages/Examples/MenuTestLevel0_10' },
+    { title: '示例31：菜单基本功能_22_验证Menu的divider分割线样式/MenuTestLevel0_13', url: 'pages/Examples/MenuTestLevel0_13' },
+    { title: '示例32：分割线组合测试/MenuTestLevel0_14', url: 'pages/Examples/MenuTestLevel0_14' },
+    { title: '示例33：菜单基本功能_23_验证MenuItem组件设置不同尺寸/MenuTestLevel0_19', url: 'pages/Examples/MenuTestLevel0_19' },
+    { title: '示例34：菜单基本功能_24_菜单边框外描边属性/MenuTestLevel0_20', url: 'pages/Examples/MenuTestLevel0_20' },
+    { title: '示例35：菜单基本功能_25_菜单蒙层效果/MenuTestLevel0_21', url: 'pages/Examples/MenuTestLevel0_21' },
+    { title: '示例35：菜单基本功能_26_菜单生命周期测试/MenuTestLevel0_22', url: 'pages/Examples/MenuTestLevel0_22' },
+    { title: '示例35：菜单基本功能_27_菜单锚定组件布局/MenuTestLevel0_23', url: 'pages/Examples/MenuTestLevel0_23' },
+    { title: '示例35：菜单基本功能_28_混合手势菜单/MenuTestLevel0_25', url: 'pages/Examples/MenuTestLevel0_25' },
+    { title: '示例35：菜单基本功能_29_菜单控制opt属性systemMaterial测试/MenuTestLevel0_26', url: 'pages/Examples/MenuTestLevel0_26' },
+    { title: '示例35：菜单基本功能_30_菜单宽度/MenuTestLevel0_8', url: 'pages/Examples/MenuTestLevel0_8' },
+    { title: '示例36：高级菜单选项配置', url: 'pages/Examples/MenuAdvancedOptions' },
+    { title: '示例37：菜单位置放置示例', url: 'pages/Examples/MenuPlacementDemo' },
+    { title: '示例38：菜单动画效果示例', url: 'pages/Examples/MenuAnimationDemo' },
+    { title: '示例39：嵌套子菜单示例', url: 'pages/Examples/MenuNestedSubMenu' },
+    { title: '示例40：菜单与预览图结合示例', url: 'pages/Examples/MenuWithPreview' },
+    { title: '示例41：菜单遮罩效果示例', url: 'pages/Examples/MenuMaskDemo' },
+    { title: '示例42：菜单系统材质示例', url: 'pages/Examples/MenuSystemMaterial' },
+    { title: '示例43：previewAnimationOptions/MenuTestLevel0_7', url: 'pages/Examples/MenuTestLevel0_7' },
+    { title: '示例44：Menu: font|fontColor|radius/MenuTestLevel0_9', url: 'pages/Examples/MenuTestLevel0_9' },
+    { title: '示例45：菜单基本功能_33_验证Menu的customBuilder1/MenuTestLevel1_0', url: 'pages/Examples/MenuTestLevel1_0' },
+    { title: '示例46：菜单基本功能_34_验证Menu的customBuilder2/MenuTestLevel1_1', url: 'pages/Examples/MenuTestLevel1_1' },
+    { title: '示例47：菜单样式定制示例', url: 'pages/bindMenu/MenuStyleCustomization' },
+    { title: '示例48：菜单交互模式示例', url: 'pages/bindMenu/MenuInteractionModes' },
+    { title: '示例49：高级菜单布局示例', url: 'pages/bindMenu/MenuAdvancedLayout' },
+    { title: '示例50：次级菜单', url: 'pages/Examples/MenuTestLevel1_2' },
+    { title: '示例51：ContextMenu预览图', url: 'pages/Examples/MenuTestLevel1_3' },
+    { title: '示例52：Divider分割线样式', url: 'pages/Examples/MenuTestLevel1_4' },
+    { title: '示例53：Menu组件主题场景1', url: 'pages/Examples/MenuTestLevel1_5' },
+    { title: '示例54：Menu组件主题场景2', url: 'pages/Examples/MenuTestLevel1_6' },
+    { title: '示例55：安全区易用性', url: 'pages/Examples/MenuTestLevel1_7' },
+  ]
+
+  build() {
+    Column() {
+      Text('菜单控制示例代码').fontSize(22)
+      List({ space: '10vp' }) {
+        ForEach(this.items, (item: Categories) => {
+          ListItem() {
+            Text(item.title).fontSize(16).fontWeight(FontWeight.Bold)
+          }
+          .width('90%')
+          .height('40vp')
+          .backgroundColor('#ff53ecd9')
+          .borderRadius(10)
+          .onClick(() => {
+            router.pushUrl({ url: item.url })
+          })
+        })
+      }.alignListItem(ListItemAlign.Center).margin(({ top: '10vp' })).width('100%').height('70%')
+    }.width('100%').height('100%')
+  }
+}

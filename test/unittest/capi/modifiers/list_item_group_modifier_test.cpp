@@ -1,0 +1,280 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <gtest/gtest.h>
+
+#include "modifier_test_base.h"
+#include "modifiers_test_utils.h"
+
+#include "base/geometry/dimension.h"
+#include "core/components/common/layout/constants.h"
+#include "core/components_ng/pattern/blank/blank_model_ng.h"
+#include "core/components_ng/pattern/list/list_item_event_hub.h"
+#include "core/components_ng/pattern/list/list_properties.h"
+#include "core/interfaces/native/utility/callback_helper.h"
+#include "core/interfaces/native/utility/converter.h"
+#include "core/interfaces/native/utility/reverse_converter.h"
+
+using namespace testing;
+using namespace testing::ext;
+
+namespace OHOS::Ace::NG {
+static constexpr int TEST_RESOURCE_ID = 1000;
+static constexpr int32_t NODE_ID = 555;
+struct CheckEvent {
+    int32_t resourceId;
+    Ark_NativePointer parentNode;
+};
+static std::optional<RefPtr<UINode>> uiNode = std::nullopt;
+static std::optional<CheckEvent> checkEventH = std::nullopt;
+static std::optional<CheckEvent> checkEventF = std::nullopt;
+
+class ListItemGroupModifierTest : public ModifierTestBase<GENERATED_ArkUIListItemGroupModifier,
+    &GENERATED_ArkUINodeModifiers::getListItemGroupModifier, GENERATED_ARKUI_LIST_ITEM_GROUP> {
+public:
+    CustomNodeBuilder getBuilderCb(bool headerCb = true)
+    {
+        static std::optional<bool> isHeader;
+        static std::optional<bool> isFooter;
+        if (headerCb) {
+            isHeader = true;
+        } else {
+            isFooter = true;
+        }
+        auto checkCallback = [](
+            const Ark_Int32 resourceId,
+            const Ark_NativePointer parentNode,
+            const Callback_Pointer_Void continuation) {
+            if (isHeader) {
+                checkEventH = {.resourceId = resourceId, .parentNode = parentNode};
+            }
+            if (isFooter) {
+                checkEventF = {.resourceId = resourceId, .parentNode = parentNode};
+            }
+            if (uiNode) {
+                CallbackHelper(continuation).InvokeSync(AceType::RawPtr(uiNode.value()));
+            }
+        };
+        CustomNodeBuilder customBuilder =
+            Converter::ArkValue<CustomNodeBuilder>(checkCallback, TEST_RESOURCE_ID);
+        return customBuilder;
+    }
+};
+
+/*
+ * @tc.name: setListItemGroupOptionsTest
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setListItemGroupOptions
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, DISABLED_setListItemGroupOptionsTest, TestSize.Level1)
+{
+    auto style = GetAttrValue<std::string>(node_, "itemGroupStyle");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.NONE"));
+    auto space = GetAttrValue<std::string>(node_, "space");
+    EXPECT_THAT(space, Eq("0.00vp"));
+
+    auto arg = Converter::ArkValue<Opt_ListItemGroupOptions>(Ark_Empty());
+    modifier_->setListItemGroupOptions(node_, &arg);
+    style = GetAttrValue<std::string>(node_, "itemGroupStyle");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.NONE"));
+    space = GetAttrValue<std::string>(node_, "space");
+    EXPECT_THAT(space, Eq("0.00vp"));
+
+    Ark_ListItemGroupOptions groupOptions = {
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(10.),
+    };
+    arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
+    modifier_->setListItemGroupOptions(node_, &arg);
+    style = GetAttrValue<std::string>(node_, "itemGroupStyle");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
+    space = GetAttrValue<std::string>(node_, "space");
+    EXPECT_THAT(space, Eq("10.00vp"));
+
+    groupOptions = {
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_String>("20"),
+    };
+    arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
+    modifier_->setListItemGroupOptions(node_, &arg);
+    style = GetAttrValue<std::string>(node_, "itemGroupStyle");
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
+    space = GetAttrValue<std::string>(node_, "space");
+    EXPECT_THAT(space, Eq("20.00vp"));
+
+    groupOptions = {
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(Ark_Empty()),
+        .space = Converter::ArkValue<Opt_Union_F64_String>(Ark_Empty()),
+    };
+    arg = Converter::ArkValue<Opt_ListItemGroupOptions>(groupOptions);
+    modifier_->setListItemGroupOptions(node_, &arg);
+    style = GetAttrValue<std::string>(node_, "itemGroupStyle");
+    // should be NONE but GetHost returns nullptr in SetListItemGroupStyle
+    EXPECT_THAT(style, Eq("ListItemGroupStyle.CARD"));
+    space = GetAttrValue<std::string>(node_, "space");
+    EXPECT_THAT(space, Eq("0.00vp"));
+}
+
+/*
+ * @tc.name: setListItemGroupOptionsTestCustomBuilder
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setListItemGroupOptions
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, setListItemGroupOptionsTestCustomBuilder, TestSize.Level1)
+{
+    uiNode = BlankModelNG::CreateFrameNode(NODE_ID);
+    auto builder = getBuilderCb();
+    auto header = Converter::ArkValue<Opt_CustomNodeBuilder>(builder);
+
+    auto builder2 = getBuilderCb(false);
+    auto footer = Converter::ArkValue<Opt_CustomNodeBuilder>(builder2);
+    Ark_ListItemGroupOptions options = {
+        .header = header,
+        .footer = footer,
+        .style = Converter::ArkValue<Opt_ListItemGroupStyle>(ARK_LIST_ITEM_GROUP_STYLE_CARD),
+        .space = Converter::ArkUnion<Opt_Union_F64_String, Ark_Float64>(10.),
+    };
+    auto optionsOpt = Converter::ArkValue<Opt_ListItemGroupOptions>(options);
+    checkEventH = std::nullopt;
+    checkEventF = std::nullopt;
+    modifier_->setListItemGroupOptions(node_, &optionsOpt);
+    ASSERT_EQ(checkEventH.has_value(), true);
+    EXPECT_EQ(checkEventH->resourceId, TEST_RESOURCE_ID);
+    ASSERT_EQ(checkEventF.has_value(), true);
+    EXPECT_EQ(checkEventF->resourceId, TEST_RESOURCE_ID);
+    uiNode = std::nullopt;
+    checkEventH = std::nullopt;
+    checkEventF = std::nullopt;
+}
+
+/**
+ * @tc.name: setDividerTest
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, setDividerTest, TestSize.Level1)
+{
+    // default values
+    auto fullJson = GetJsonValue(node_);
+    auto dividerObject = GetAttrObject(fullJson, "divider");
+    auto dividerCheckValue = dividerObject->ToString();
+    EXPECT_EQ(dividerCheckValue, "{}");
+
+    // set valid values, color as Ark_Color aka int
+    Ark_ListDividerOptions dividerOptions = {
+        .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
+        .color = Converter::ArkUnion<Opt_ResourceColor, Ark_Color>(ARK_COLOR_WHITE),
+    };
+    auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
+    modifier_->setDivider(node_, &divider);
+    fullJson = GetJsonValue(node_);
+    dividerObject = GetAttrObject(fullJson, "divider");
+    auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
+    EXPECT_THAT(strokeWidthCheckValue, Eq("11.00vp"));
+    auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
+    EXPECT_THAT(startMarginCheckValue, Eq("55.50vp"));
+    auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
+    EXPECT_THAT(endMarginCheckValue, Eq("77.00vp"));
+    auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq("#FFFFFFFF"));
+
+    // set color as Ark_Number
+    dividerOptions = {
+        .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
+        .color = Converter::ArkUnion<Opt_ResourceColor, Ark_Int32>(0x123456),
+    };
+    divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
+    modifier_->setDivider(node_, &divider);
+    fullJson = GetJsonValue(node_);
+    dividerObject = GetAttrObject(fullJson, "divider");
+    colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq("#FF123456"));
+}
+
+/**
+ * @tc.name: setDividerTestUndefined
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, setDividerTestUndefined, TestSize.Level1)
+{
+    // set undefined values
+    Ark_ListDividerOptions dividerOptions = {
+        .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
+        .startMargin = Converter::ArkValue<Opt_Length>(Ark_Empty()),
+        .endMargin = Converter::ArkValue<Opt_Length>(Ark_Empty()),
+        .color = Converter::ArkValue<Opt_ResourceColor>(),
+    };
+    auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
+    modifier_->setDivider(node_, &divider);
+    auto fullJson = GetJsonValue(node_);
+    auto dividerObject = GetAttrObject(fullJson, "divider");
+    auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
+    EXPECT_THAT(strokeWidthCheckValue, Eq("11.00vp"));
+    auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
+    EXPECT_THAT(startMarginCheckValue, Eq("0.00vp"));
+    auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
+    EXPECT_THAT(endMarginCheckValue, Eq("0.00vp"));
+    auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq("#00000000"));
+}
+
+/**
+ * @tc.name: setDividerTestColorString
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, setDividerTestColorString, TestSize.Level1)
+{
+    // set color as Ark_String
+    Ark_ListDividerOptions dividerOptions = {
+        .strokeWidth = Converter::ArkValue<Ark_Length>(11.),
+        .startMargin = Converter::ArkValue<Opt_Length>(55.5),
+        .endMargin = Converter::ArkValue<Opt_Length>(77.),
+        .color = Converter::ArkUnion<Opt_ResourceColor, Ark_String>("#11223344"),
+    };
+    auto divider = Converter::ArkValue<Opt_ListDividerOptions>(dividerOptions);
+    modifier_->setDivider(node_, &divider);
+    auto fullJson = GetJsonValue(node_);
+    auto dividerObject = GetAttrObject(fullJson, "divider");
+    auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq("#11223344"));
+}
+
+/**
+ * @tc.name: setDividerTestEmpty
+ * @tc.desc: Check the functionality of ListItemGroupModifier.setDivider
+ * @tc.type: FUNC
+ */
+HWTEST_F(ListItemGroupModifierTest, setDividerTestEmpty, TestSize.Level1)
+{
+    auto divider = Converter::ArkValue<Opt_ListDividerOptions>();
+    modifier_->setDivider(node_, &divider);
+    auto fullJson = GetJsonValue(node_);
+    auto dividerObject = GetAttrObject(fullJson, "divider");
+    auto strokeWidthCheckValue = GetAttrValue<std::string>(dividerObject, "strokeWidth");
+    EXPECT_THAT(strokeWidthCheckValue, Eq(std::nullopt));
+    auto startMarginCheckValue = GetAttrValue<std::string>(dividerObject, "startMargin");
+    EXPECT_THAT(startMarginCheckValue, Eq(std::nullopt));
+    auto endMarginCheckValue = GetAttrValue<std::string>(dividerObject, "endMargin");
+    EXPECT_THAT(endMarginCheckValue, Eq(std::nullopt));
+    auto colorCheckValue = GetAttrValue<std::string>(dividerObject, "color");
+    EXPECT_THAT(colorCheckValue, Eq(std::nullopt));
+}
+} // namespace OHOS::Ace::NG

@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { NavList, NavListItem } from '../../utils/navigationList'
+
+@Builder
+export function PopupIndexBuilder(name: string, param: Object) {
+  PopupIndex()
+}
+
+@Entry
+@Component
+export struct PopupIndex {
+  pathStack: NavPathStack = new NavPathStack()
+  paths: NavListItem[] = [
+    { name: 'Popup', path: 'Popup' },
+    { name: 'popupPositionTest', path: 'popupPositionTest' },
+    { name: 'PopupStyleBuilder', path: 'PopupStyleBuilder' },
+    { name: 'PopupDismissTest', path: 'PopupDismissTest' },
+    { name: 'PopupAdvancedTest', path: 'PopupAdvancedTest' },
+    { name: 'PopupAnimateTest', path: 'PopupAnimateTest' },
+    { name: 'PopupTipTest', path: 'PopupTipTest' },
+    { name: 'PopupDragTest', path: 'PopupDragTest' },
+    { name: 'PopupMessageTest', path: 'PopupMessageTest' },
+    { name: 'PopupComplexTest', path: 'PopupComplexTest' },
+    { name: 'openPopupTest', path: 'openPopupTest' },
+    { name: 'popupBlurTest', path: 'popupBlurTest' },
+    { name: 'popupMutiTest', path: 'popupMutiTest' },
+    { name: 'popupBuilderTest', path: 'popupBuilderTest' },
+    { name: 'PopupKeyboardTest', path: 'PopupKeyboardTest' },
+    { name: 'UIContextPopupTest', path: 'UIContextPopupTest' },
+    { name: 'PopupBigTest', path: 'PopupBigTest' },
+    { name: 'AdvancedPopupTest', path: 'AdvancedPopupTest' },
+    { name: 'PopupTest', path: 'PopupTest' },
+    { name: 'PopupAccessibilityModel', path: 'PopupAccessibilityModel' },
+    { name: 'PopupDoubleBorderTest', path: 'PopupDoubleBorderTest' },
+    { name: 'PopupBorderTest', path: 'PopupBorderTest' },
+    { name: 'PopupDismiss01Test', path: 'PopupDismiss01Test' },
+    { name: 'PopupListTest', path: 'PopupListTest' },
+    { name: 'TipsAvoidTest', path: 'TipsAvoidTest' },
+    { name: 'TipsStyleTest', path: 'TipsStyleTest' },
+    { name: 'SoftKeyboardLevel00Test', path: 'SoftKeyboardLevel00Test' },
+    { name: 'SoftKeyboardLevel01Test', path: 'SoftKeyboardLevel01Test' },
+    { name: 'SoftKeyboardLevel02Test', path: 'SoftKeyboardLevel02Test' },
+    { name: 'SoftKeyboardLevel03Test', path: 'SoftKeyboardLevel03Test' },
+    { name: 'SoftKeyboardLevel04Test', path: 'SoftKeyboardLevel04Test' },
+    { name: 'SoftKeyboardLevel05Test', path: 'SoftKeyboardLevel05Test' },
+    { name: 'SoftKeyboardLevel06Test', path: 'SoftKeyboardLevel06Test' },
+    { name: 'SoftKeyboardLevel07Test', path: 'SoftKeyboardLevel07Test' },
+    { name: 'SoftKeyboardLevel08Test', path: 'SoftKeyboardLevel08Test' },
+    { name: 'SoftKeyboardLevel09Test', path: 'SoftKeyboardLevel09Test' },
+    { name: 'SoftKeyboardLevel010Test', path: 'SoftKeyboardLevel010Test' },
+    { name: 'SoftKeyboardLevel011Test', path: 'SoftKeyboardLevel011Test' },
+    { name: 'PopupAnimationTest', path: 'PopupAnimationTest' },
+    { name: 'PopupLifecycleTest', path: 'PopupLifecycleTest' },
+    { name: 'PopupNestedTest', path: 'PopupNestedTest' },
+    { name: 'PopupTouchTest', path: 'PopupTouchTest' },
+    { name: 'PopupTabsTest', path: 'PopupTabsTest' },
+    { name: 'PopupWaterFlowTest', path: 'PopupWaterFlowTest' },
+  ]
+
+  build() {
+    NavDestination() {
+      Scroll() {
+        NavList({
+          pages: this.paths,
+          onPathChange: (item: NavListItem) => {
+            this.pathStack.pushPath( { name: item.path } )
+          }
+        })
+      }
+    }
+    .title('Popup')
+    .onBackPressed(() => {
+      this.pathStack.pop()
+      return true
+    })
+    .onReady((context: NavDestinationContext) => {
+      this.pathStack = context.pathStack;
+    })
+  }
+}

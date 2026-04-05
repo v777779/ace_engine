@@ -1,0 +1,182 @@
+# Copyright (c) 2021-2022 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//build/ohos.gni")
+import("//foundation/arkui/ace_engine/ace_config.gni")
+
+template("bridge_common") {
+  forward_variables_from(invoker, "*")
+
+  ohos_source_set(target_name) {
+    subsystem_name = ace_engine_subsystem
+    part_name = ace_engine_part
+    defines += invoker.defines
+
+    configs = [ "$ace_root:ace_config" ]
+
+    sources = [
+      # dom
+      "dom/dom_button.cpp",
+      "dom/dom_calendar.cpp",
+      "dom/dom_dialog.cpp",
+      "dom/dom_div.cpp",
+      "dom/dom_divider.cpp",
+      "dom/dom_document.cpp",
+      "dom/dom_form.cpp",
+      "dom/dom_image.cpp",
+      "dom/dom_navigation_bar.cpp",
+      "dom/dom_node.cpp",
+      "dom/dom_panel.cpp",
+      "dom/dom_progress.cpp",
+      "dom/dom_proxy.cpp",
+      "dom/dom_slider.cpp",
+      "dom/dom_span.cpp",
+      "dom/dom_stack.cpp",
+      "dom/dom_text.cpp",
+      "dom/dom_type.cpp",
+
+      # manifest
+      "manifest/manifest_appinfo.cpp",
+      "manifest/manifest_parser.cpp",
+      "manifest/manifest_router.cpp",
+      "manifest/manifest_widget.cpp",
+      "manifest/manifest_window.cpp",
+
+      # media query
+      "media_query/media_query_info.cpp",
+      "media_query/media_queryer.cpp",
+
+      # plugin adapter
+      "plugin_adapter/plugin_bridge.cpp",
+
+      # utils
+      "utils/engine_helper.cpp",
+      "utils/module_buffer_reader.cpp",
+      "utils/source_map.cpp",
+      "utils/transform_convertor.cpp",
+      "utils/utils.cpp",
+    ]
+
+    # rich components needed by phone and TV. wearable like watch do not need them
+    if (defined(config.rich_components_support) &&
+        config.rich_components_support) {
+      sources += [
+        "dom/dom_menu.cpp",
+        "dom/dom_option.cpp",
+        "dom/dom_popup.cpp",
+        "dom/dom_select.cpp",
+      ]
+    }
+
+    # xcomponent components supports phone, TV and wearable except PC Preview
+    if (defined(config.xcomponent_components_support) &&
+        config.xcomponent_components_support) {
+      sources += [ "dom/dom_xcomponent.cpp" ]
+    }
+
+    # advance components using web or native plugins
+    if (defined(config.advance_components_support) &&
+        config.advance_components_support && !is_arkui_x) {
+      sources += [
+        "dom/dom_rich_text.cpp",
+        "dom/dom_web.cpp",
+      ]
+    }
+
+    if (defined(config.web_components_support) &&
+        config.web_components_support && !is_arkui_x) {
+      sources += [
+        "dom/dom_rich_text.cpp",
+        "dom/dom_web.cpp",
+      ]
+    }
+
+    deps = []
+    if (use_hilog) {
+      external_deps = [ "hilog:libhilog" ]
+    }
+  }
+}
+
+template("bridge_common_ng") {
+  forward_variables_from(invoker, "*")
+
+  ohos_source_set(target_name) {
+    subsystem_name = ace_engine_subsystem
+    part_name = ace_engine_part
+    defines += invoker.defines
+
+    configs = [ "$ace_root:ace_config" ]
+
+    sources = [
+      # manifest
+      "dom/dom_type.cpp",
+      "manifest/manifest_appinfo.cpp",
+      "manifest/manifest_parser.cpp",
+      "manifest/manifest_router.cpp",
+      "manifest/manifest_widget.cpp",
+      "manifest/manifest_window.cpp",
+
+      # media query
+      "media_query/media_query_info.cpp",
+      "media_query/media_queryer.cpp",
+
+      # plugin adapter
+      "plugin_adapter/plugin_bridge.cpp",
+
+      # utils
+      "../js_frontend/engine/common/js_constants.cpp",
+      "../js_frontend/frontend_delegate.cpp",
+      "../js_frontend/js_ace_page.cpp",
+      "utils/engine_helper.cpp",
+      "utils/module_buffer_reader.cpp",
+      "utils/source_map.cpp",
+      "utils/utils.cpp",
+    ]
+
+    deps = []
+    if (use_hilog) {
+      external_deps = [ "hilog:libhilog" ]
+    }
+  }
+}
+
+foreach(item, ace_platforms) {
+  bridge_common("bridge_common_" + item.name) {
+    defines = []
+    config = {
+    }
+
+    if (defined(item.config)) {
+      config = item.config
+    }
+
+    if (defined(config.defines)) {
+      defines = config.defines
+    }
+  }
+
+  bridge_common_ng("bridge_common_ng_" + item.name) {
+    defines = []
+    config = {
+    }
+
+    if (defined(item.config)) {
+      config = item.config
+    }
+
+    if (defined(config.defines)) {
+      defines = config.defines
+    }
+  }
+}

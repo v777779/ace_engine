@@ -1,0 +1,1807 @@
+/*
+ * Copyright (c) 2023-2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+interface LayoutConstraint {
+  maxSize: Size;
+  minSize: Size;
+  percentReference: Size;
+}
+
+interface CrossLanguageOptions {
+  attributeSetting?: boolean;
+}
+
+interface InteractionEventBindingInfo {
+  baseEventRegistered?: boolean;
+  nodeEventRegistered?: boolean;
+  nativeEventRegistered?: boolean;
+  builtInEventRegistered?: boolean;
+}
+
+interface ArkComponentCreator {
+  createSearchComponent?:(node: NodePtr, type: ModifierType) => ArkSearchComponent;
+  createMarqueeComponent?: (node: NodePtr, type: ModifierType) => ArkMarqueeComponent;
+  createSymbolGlyphComponent?: (node: NodePtr, type: ModifierType) => ArkSymbolGlyphComponent;
+}
+
+const __componentCreator__ : ArkComponentCreator = {};
+
+enum ExpandMode {
+  NOT_EXPAND = 0,
+  EXPAND = 1,
+  LAZY_EXPAND = 2,
+}
+
+enum UIState {
+  NORMAL = 0,
+  PRESSED = 1 << 0,
+  FOCUSED = 1 << 1,
+  DISABLED = 1 << 2,
+  SELECTED = 1 << 3,
+}
+
+declare enum EventQueryType {
+  ON_CLICK = 0,
+}
+
+const ERROR_CODE_NO_ERROR = 0;
+const ERROR_CODE_NODE_IS_ADOPTED = 106206;
+const ERROR_CODE_NODE_HAS_PARENT = 106207;
+const ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED = 106208;
+const ERROR_CODE_NODE_CAN_NOT_ADOPT_TO = 106209;
+const ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN = 106210;
+
+const errorMap_: Map<number, string> = new Map<number, string>();
+errorMap_.set(ERROR_CODE_NODE_IS_ADOPTED, "The parameter 'child' is invalid: the node has already been adopted.");
+errorMap_.set(ERROR_CODE_NODE_HAS_PARENT, "The parameter 'child' is invalid: the child already has a parent node.");
+errorMap_.set(ERROR_CODE_NODE_CAN_NOT_BE_ADOPTED, "The parameter 'child' is invalid: the node cannot be adopted.");
+errorMap_.set(ERROR_CODE_NODE_CAN_NOT_ADOPT_TO, 'Current node is invalid: the node cannot adopt children.');
+errorMap_.set(ERROR_CODE_NODE_IS_NOT_IN_ADOPTED_CHILDREN, "The parameter 'child' is invalid: the node is not adopted by the parent node.");
+
+declare type UIStatesChangeHandler = (node: FrameNode, currentUIStates: number) => void;
+declare type UIStatesChangeHandlerCallback = (currentUIStates: number) => void;
+
+function getFrameNodeRawPtr(nodePtr: NodePtr): number {
+  return getUINativeModule().frameNode.getFrameNodeRawPtr(nodePtr);
+}
+
+class FrameNode {
+  public _nodeId: number;
+  protected _commonAttribute: ArkComponent;
+  protected _commonEvent: UICommonEvent;
+  public _componentAttribute: ArkComponent;
+  public _scrollableEvent: UIScrollableCommonEvent;
+  protected _isDisposed: boolean;
+  protected _gestureEvent: UIGestureEvent;
+  protected _childList: Map<number, FrameNode>;
+  protected _nativeRef: NativeStrongRef | NativeWeakRef;
+  protected renderNode_: RenderNode;
+  protected baseNode_: BaseNode;
+  protected builderNode_: JSBuilderNode;
+  public uiContext_: UIContext | undefined | null;
+  public nodePtr_: NodePtr;
+  protected instanceId_?: number;
+  private nodeAdapterRef_?: NodeAdapter;
+  public type_: string | undefined;
+  public rawPtr_: number | undefined;
+  protected statesChangeHandler_: UIStatesChangeHandlerCallback | undefined;
+  protected supportedStates_: number;
+  constructor(uiContext: UIContext, type: string, options?: object, nativePointer?: number) {
+    if (uiContext === undefined) {
+      throw new BusinessError(401, 'Node constructor error, param uiContext error');
+    } else {
+      if (!(typeof uiContext === "object") || !("instanceId_" in uiContext)) {
+        throw new BusinessError(401, 'Node constructor error, param uiContext is invalid');
+      }
+    }
+    this.instanceId_ = uiContext.instanceId_;
+    this.uiContext_ = uiContext;
+    this._nodeId = -1;
+    this._isDisposed = false;
+    this._childList = new Map();
+    if (type === 'BuilderRootFrameNode') {
+      this.renderNode_ = new RenderNode(type);
+      if (nativePointer === null || nativePointer === undefined) {
+        this.renderNode_.setFrameNode(new WeakRef(this));
+        return;
+      }
+    }
+    if (type === 'ProxyFrameNode' || type === 'InternalBatchFrameNode') {
+      return;
+    }
+    let result;
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    if (type === undefined || type === "CustomFrameNode") {
+      this.renderNode_ = new RenderNode('CustomFrameNode');
+      if (nativePointer === null || nativePointer === undefined) {
+        result = getUINativeModule().frameNode.createFrameNode(this);
+      }
+      else {
+        result = getUINativeModule().frameNode.createTransFrameNode(this, nativePointer);
+      }
+    }
+    else {
+      if (nativePointer === undefined || nativePointer === null) {
+        result = getUINativeModule().frameNode.createTypedFrameNode(this, type, options);
+      } else {
+        result = getUINativeModule().frameNode.createTransTypedFrameNode(this, type, options, nativePointer);
+      }
+    }
+    __JSScopeUtil__.restoreInstanceId();
+    this._nativeRef = result?.nativeStrongRef;
+    this._nodeId = result?.nodeId;
+    this.nodePtr_ = this._nativeRef?.getNativeHandle();
+    this.renderNode_?.setNodePtr(result?.nativeStrongRef);
+    this.renderNode_?.setFrameNode(new WeakRef(this));
+    if (result === undefined || this._nodeId === -1) {
+      return;
+    }
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(this._nodeId, new WeakRef(this));
+    FrameNodeFinalizationRegisterProxy.register(this, this._nodeId);
+
+  }
+  invalidate() {
+    if (this.nodePtr_ === undefined || this.nodePtr_ === null) {
+      return;
+    }
+    getUINativeModule().frameNode.invalidate(this.nodePtr_);
+  }
+  getType(): string {
+    return 'CustomFrameNode';
+  }
+  setRenderNode(nativeRef: NativeStrongRef): void {
+    this.renderNode_?.setNodePtr(nativeRef);
+  }
+  getRenderNode(): RenderNode | null {
+    if (
+      this.renderNode_ !== undefined &&
+      this.renderNode_ !== null &&
+      this.renderNode_.getNodePtr() !== null
+    ) {
+      return this.renderNode_;
+    }
+    return null;
+  }
+  setNodePtr(nativeRef: NativeStrongRef | NativeWeakRef, nodePtr: NodePtr): void {
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(this._nodeId);
+    this._nativeRef = nativeRef;
+    this.nodePtr_ = nodePtr ? nodePtr : this._nativeRef?.getNativeHandle();
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    this._nodeId = getUINativeModule().frameNode.getIdByNodePtr(this.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    if (this._nodeId === -1) {
+      return;
+    }
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(this._nodeId, new WeakRef(this));
+    FrameNodeFinalizationRegisterProxy.register(this, this._nodeId);
+  }
+  resetNodePtr(): void {
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(this._nodeId);
+    this._nodeId = -1;
+    this._nativeRef = null;
+    this.nodePtr_ = null;
+    this.renderNode_?.resetNodePtr();
+  }
+  setBaseNode(baseNode: BaseNode | null): void {
+    this.baseNode_ = baseNode;
+    this.renderNode_?.setBaseNode(baseNode);
+  }
+  setBuilderNode(builderNode: JSBuilderNode | null): void {
+    this.builderNode_ = builderNode;
+  }
+  getBuilderNode(): JSBuilderNode | null {
+    return this.builderNode_ || null;
+  }
+  setAdapterRef(adapter: NodeAdapter | undefined): void {
+    this.nodeAdapterRef_ = adapter;
+  }
+  getNodePtr(): NodePtr | null {
+    return this.nodePtr_;
+  }
+  getValidNodePtr(): NodePtr {
+    const node = this.getNodePtr();
+    if (node === null) {
+      throw new BusinessError(100026, 'The FrameNode has been disposed!');
+    } else {
+      return node;
+    }
+  }
+  dispose(): void {
+    if (this.isDisposed()) {
+      return;
+    }
+    this._isDisposed = true;
+    if (this.nodePtr_) {
+      getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this),
+        'FrameNode', this.getNodeType() || 'FrameNode', this.nodePtr_);
+    }
+    this.renderNode_?.dispose();
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(this._nodeId);
+    this._nodeId = -1;
+    this._nativeRef = null;
+    this.nodePtr_ = null;
+  }
+
+  isDisposed(): boolean {
+    let node = this.getNodePtr();
+    return this._isDisposed && (node === undefined || node === null);
+  }
+
+  static disposeTreeRecursively(node: FrameNode | null): void {
+    if (node === null) {
+      return;
+    }
+    let child = node.getFirstChildWithoutExpand();
+    FrameNode.disposeTreeRecursively(child);
+    let sibling = node.getNextSiblingWithoutExpand();
+    FrameNode.disposeTreeRecursively(sibling);
+    node.dispose();
+  }
+
+  disposeTree(): void {
+    let parent = this.getParent();
+    if (parent?.getNodeType() === "NodeContainer") {
+      getUINativeModule().nodeContainer.clean(parent?.getNodePtr());
+    } else {
+      parent?.removeChild(this);
+    }
+    FrameNode.disposeTreeRecursively(this);
+  }
+
+  static createFrameNodes(uiContext: UIContext, count: number): FrameNode[] {
+    if (uiContext === undefined) {
+      throw new BusinessError(401, 'Node constructor error, param uiContext error');
+    }
+    if (!(typeof uiContext === 'object') || !("instanceId_" in uiContext)) {
+      throw new BusinessError(401, 'Node constructor error, param uiContext is invalid');
+    }
+    if (!Number.isInteger(count)) {
+      throw new BusinessError(401, "The parameter 'count' is invalid.");
+    }
+    if (count === 0 || count < 0) {
+      return [];
+    }
+    __JSScopeUtil__.syncInstanceId(uiContext.instanceId_);
+    const result = getUINativeModule().frameNode.createFrameNodes(count);
+    __JSScopeUtil__.restoreInstanceId();
+    if (!Array.isArray(result) || result.length === 0) {
+      return [];
+    }
+
+    const frameNodes: FrameNode[] = [];
+    result.forEach((item: any) => {
+      if (item === undefined || item === null || item.nodeId === undefined || item.nativeStrongRef === undefined) {
+        return;
+      }
+      const frameNode = new FrameNode(uiContext, 'InternalBatchFrameNode');
+      frameNode.type_ = undefined;
+      frameNode.rawPtr_ = item.rawPtr_;
+      frameNode._nativeRef = item.nativeStrongRef;
+      frameNode._nodeId = item.nodeId;
+      frameNode.nodePtr_ = frameNode._nativeRef?.getNativeHandle();
+      frameNode.renderNode_ = new RenderNode('CustomFrameNode');
+      frameNode.renderNode_?.setNodePtr(item.nativeStrongRef);
+      frameNode.renderNode_?.setFrameNode(new WeakRef(frameNode));
+      if (frameNode._nodeId !== -1) {
+        FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(frameNode._nodeId, new WeakRef(frameNode));
+        FrameNodeFinalizationRegisterProxy.register(frameNode, frameNode._nodeId);
+      }
+      frameNodes.push(frameNode);
+    });
+    return frameNodes;
+  }
+
+  getFrameNodeById(id: string): FrameNode | null {
+    const result = getUINativeModule().frameNode.getFrameNodeById(this.getNodePtr(), id);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getFrameNodeByUniqueId(id: number): FrameNode | null {
+    const result = getUINativeModule().frameNode.getFrameNodeByUniqueId(this.getNodePtr(), id);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  checkType(): void {
+    if (!this.isModifiable()) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+  }
+  isModifiable(): boolean {
+    return this._nativeRef !== undefined && this._nativeRef !== null;
+  }
+
+  convertToFrameNode(nodePtr: NodePtr, nodeId: number = -1): FrameNode | null {
+    if (nodeId === -1) {
+      __JSScopeUtil__.syncInstanceId(this.instanceId_);
+      nodeId = getUINativeModule().frameNode.getIdByNodePtr(nodePtr);
+      __JSScopeUtil__.restoreInstanceId();
+    }
+    if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
+      let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId).deref();
+      if (frameNode) {
+        return frameNode;
+      }
+    }
+    if (nodeId !== -1 && !getUINativeModule().frameNode.isModifiable(nodePtr)) {
+      __JSScopeUtil__.syncInstanceId(this.instanceId_);
+      let frameNode = new ProxyFrameNode(this.uiContext_);
+      let node = getUINativeModule().nativeUtils.createNativeWeakRef(nodePtr);
+      __JSScopeUtil__.restoreInstanceId();
+      frameNode.setNodePtr(node);
+      frameNode._nodeId = nodeId;
+      FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(frameNode._nodeId, new WeakRef(frameNode));
+      FrameNodeFinalizationRegisterProxy.register(frameNode, frameNode._nodeId);
+      return frameNode;
+    }
+    return null;
+  }
+
+  checkValid(node?: FrameNode): boolean {
+    return true;
+  }
+
+  appendChild(node: FrameNode): void {
+    if (node === undefined || node === null) {
+      return;
+    }
+    if (node.getType() === 'ProxyFrameNode' || !this.checkValid(node)) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let flag = getUINativeModule().frameNode.appendChild(this.nodePtr_, node.nodePtr_);
+    getUINativeModule().frameNode.addBuilderNode(this.nodePtr_, node.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    if (flag === ERROR_CODE_NODE_IS_ADOPTED) {
+      throw { message: "The parameter 'node' is invalid: the node has already been adopted.", code: 100025 };
+    }
+    if (flag !== ERROR_CODE_NO_ERROR) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    this._childList.set(node._nodeId, node);
+  }
+
+  addComponentContent(content: ComponentContent): void {
+    if (content === undefined || content === null || content.getNodePtr() === null || content.getNodePtr() == undefined) {
+      return;
+    }
+    if (!this.checkValid() || !this.isModifiable()) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let flag = getUINativeModule().frameNode.appendChild(this.nodePtr_, content.getNodeWithoutProxy());
+    getUINativeModule().frameNode.addBuilderNode(this.nodePtr_, content.getNodePtr());
+    __JSScopeUtil__.restoreInstanceId();
+    if (flag !== ERROR_CODE_NO_ERROR) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    } else {
+      content.setAttachedParent(new WeakRef<FrameNode>(this));
+    }
+  }
+
+  removeComponentContent(content: ComponentContent): void {
+    if (content === undefined || content === null || content.getNodePtr() === null || content.getNodePtr() === undefined) {
+      return;
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    getUINativeModule().frameNode.removeBuilderNode(this.nodePtr_, content.getNodePtr());
+    getUINativeModule().frameNode.removeChild(this.nodePtr_, content.getNodePtr());
+    content.setAttachedParent(undefined);
+    __JSScopeUtil__.restoreInstanceId();
+  }
+
+  insertChildAfter(child: FrameNode, sibling: FrameNode): void {
+    if (child === undefined || child === null) {
+      return;
+    }
+    if (child.getType() === 'ProxyFrameNode' || !this.checkValid(child)) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    let flag = 0;
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    if (sibling === undefined || sibling === null) {
+      flag = getUINativeModule().frameNode.insertChildAfter(this.nodePtr_, child.nodePtr_, null);
+    } else {
+      flag = getUINativeModule().frameNode.insertChildAfter(this.nodePtr_, child.nodePtr_, sibling.getNodePtr());
+    }
+    getUINativeModule().frameNode.addBuilderNode(this.nodePtr_, child.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    if (flag === ERROR_CODE_NODE_IS_ADOPTED) {
+      throw { message: "The parameter 'child' is invalid: the node has already been adopted.", code: 100025 };
+    }
+    if (flag === undefined || flag !== ERROR_CODE_NO_ERROR) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    this._childList.set(child._nodeId, child);
+  }
+
+  removeChild(node: FrameNode): void {
+    if (node === undefined || node === null) {
+      return;
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    getUINativeModule().frameNode.removeBuilderNode(this.nodePtr_, node.nodePtr_);
+    getUINativeModule().frameNode.removeChild(this.nodePtr_, node.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    this._childList.delete(node._nodeId);
+  }
+
+  clearChildren(): void {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    getUINativeModule().frameNode.clearBuilderNode(this.nodePtr_);
+    getUINativeModule().frameNode.clearChildren(this.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    this._childList.clear();
+  }
+
+  moveTo(targetParent: FrameNode, index?: number): void {
+    if (targetParent === undefined || targetParent === null) {
+      return;
+    }
+    if (index === undefined || index === null) {
+      index = -1;
+    }
+    const oldParent = this.getParent();
+    if (oldParent && !oldParent.isModifiable() || !targetParent.isModifiable() || !targetParent.checkValid(this)) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.moveTo(this.nodePtr_, targetParent.nodePtr_, index);
+    __JSScopeUtil__.restoreInstanceId();
+    if (result === ERROR_CODE_NODE_IS_ADOPTED) {
+      throw { message: 'The current node has already been adopted.', code: 100027 };
+    }
+    if (oldParent) {
+      oldParent._childList.delete(this._nodeId);
+    }
+    targetParent._childList.set(this._nodeId, this);
+  }
+
+  getChild(index: number, expandMode?: ExpandMode): FrameNode | null {
+    const result = getUINativeModule().frameNode.getChild(this.getNodePtr(), index, expandMode);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getFirstChildIndexWithoutExpand(): number {
+    return getUINativeModule().frameNode.getFirstChildIndexWithoutExpand(this.getNodePtr());
+  }
+
+  getLastChildIndexWithoutExpand(): number {
+    return getUINativeModule().frameNode.getLastChildIndexWithoutExpand(this.getNodePtr());
+  }
+
+  getFirstChild(isExpanded?: boolean): FrameNode | null {
+    const result = getUINativeModule().frameNode.getFirst(this.getNodePtr(), isExpanded);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getFirstChildWithoutExpand(): FrameNode | null {
+    const result = getUINativeModule().frameNode.getFirst(this.getNodePtr(), false);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getNextSibling(isExpanded?: boolean): FrameNode | null {
+    const result = getUINativeModule().frameNode.getNextSibling(this.getNodePtr(), isExpanded);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getNextSiblingWithoutExpand(): FrameNode | null {
+    const result = getUINativeModule().frameNode.getNextSibling(this.getNodePtr(), false);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getPreviousSibling(isExpanded?: boolean): FrameNode | null {
+    const result = getUINativeModule().frameNode.getPreviousSibling(this.getNodePtr(), isExpanded);
+    const nodeId = result?.nodeId;
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getParent(): FrameNode | null {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const result = getUINativeModule().frameNode.getParent(this.getNodePtr());
+    const nodeId = result?.nodeId;
+    __JSScopeUtil__.restoreInstanceId();
+    if (nodeId === undefined || nodeId === -1) {
+      return null;
+    }
+    return this.convertToFrameNode(result.nodePtr, result.nodeId);
+  }
+
+  getChildrenCount(isExpanded?: boolean): number {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const childrenCount = getUINativeModule().frameNode.getChildrenCount(this.getNodePtr(), isExpanded);
+    __JSScopeUtil__.restoreInstanceId();
+    return childrenCount;
+  }
+
+  getPositionToParent(): Position {
+    const position = getUINativeModule().frameNode.getPositionToParent(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getPositionToScreen(): Position {
+    const position = getUINativeModule().frameNode.getPositionToScreen(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getPositionToWindow(): Position {
+    const position = getUINativeModule().frameNode.getPositionToWindow(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getGlobalPositionOnDisplay(): Position {
+    const position = getUINativeModule().frameNode.getGlobalPositionOnDisplay(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getPositionToParentWithTransform(): Position {
+    const position = getUINativeModule().frameNode.getPositionToParentWithTransform(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getPositionToScreenWithTransform(): Position {
+    const position = getUINativeModule().frameNode.getPositionToScreenWithTransform(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getPositionToWindowWithTransform(): Position {
+    const position = getUINativeModule().frameNode.getPositionToWindowWithTransform(this.getNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getMeasuredSize(): Size {
+    const size = getUINativeModule().frameNode.getMeasuredSize(this.getValidNodePtr());
+    return { width: size[0], height: size[1] };
+  }
+
+  getLayoutPosition(): Position {
+    const position = getUINativeModule().frameNode.getLayoutPosition(this.getValidNodePtr());
+    return { x: position[0], y: position[1] };
+  }
+
+  getUserConfigBorderWidth(): EdgesT<LengthMetrics> {
+    const borderWidth = getUINativeModule().frameNode.getConfigBorderWidth(this.getNodePtr());
+    return {
+      top: new LengthMetrics(borderWidth[0], borderWidth[1]),
+      right: new LengthMetrics(borderWidth[2], borderWidth[3]),
+      bottom: new LengthMetrics(borderWidth[4], borderWidth[5]),
+      left: new LengthMetrics(borderWidth[6], borderWidth[7])
+    };
+  }
+
+  getUserConfigPadding(): EdgesT<LengthMetrics> {
+    const borderWidth = getUINativeModule().frameNode.getConfigPadding(this.getNodePtr());
+    return {
+      top: new LengthMetrics(borderWidth[0], borderWidth[1]),
+      right: new LengthMetrics(borderWidth[2], borderWidth[3]),
+      bottom: new LengthMetrics(borderWidth[4], borderWidth[5]),
+      left: new LengthMetrics(borderWidth[6], borderWidth[7])
+    };
+  }
+
+  getUserConfigMargin(): EdgesT<LengthMetrics> {
+    const margin = getUINativeModule().frameNode.getConfigMargin(this.getNodePtr());
+    return {
+      top: new LengthMetrics(margin[0], margin[1]),
+      right: new LengthMetrics(margin[2], margin[3]),
+      bottom: new LengthMetrics(margin[4], margin[5]),
+      left: new LengthMetrics(margin[6], margin[7])
+    };
+  }
+
+  getUserConfigSize(): SizeT<LengthMetrics> {
+    const size = getUINativeModule().frameNode.getConfigSize(this.getNodePtr());
+    return {
+      width: new LengthMetrics(size[0], size[1]),
+      height: new LengthMetrics(size[2], size[3])
+    };
+  }
+
+  getId(): string {
+    return getUINativeModule().frameNode.getId(this.getNodePtr());
+  }
+
+  getUniqueId(): number {
+    return getUINativeModule().frameNode.getIdByNodePtr(this.getNodePtr());
+  }
+
+  getNodeType(): string {
+    return getUINativeModule().frameNode.getNodeType(this.getNodePtr());
+  }
+
+  getOpacity(): number {
+    return getUINativeModule().frameNode.getOpacity(this.getNodePtr());
+  }
+
+  isVisible(): boolean {
+    return getUINativeModule().frameNode.isVisible(this.getNodePtr());
+  }
+
+  isClipToFrame(): boolean {
+    return getUINativeModule().frameNode.isClipToFrame(this.getNodePtr());
+  }
+
+  isAttached(): boolean {
+    return getUINativeModule().frameNode.isAttached(this.getNodePtr());
+  }
+
+  isOnMainTree(): boolean {
+    if (this.isDisposed()) {
+      throw new BusinessError(100026, 'The current node has been disposed.');
+    }
+    return getUINativeModule().frameNode.isOnMainTree(this.getNodePtr());
+  }
+
+  getInspectorInfo(): Object {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const inspectorInfoStr = getUINativeModule().frameNode.getInspectorInfo(this.getNodePtr());
+    __JSScopeUtil__.restoreInstanceId();
+    const inspectorInfo = JSON.parse(inspectorInfoStr);
+    return inspectorInfo;
+  }
+
+  getCustomProperty(key: string): Object | undefined {
+    if (key === undefined) {
+      return undefined;
+    }
+    let value = __getCustomProperty__(this._nodeId, key);
+    if (value === undefined) {
+      const valueStr = getUINativeModule().frameNode.getCustomPropertyCapiByKey(this.getNodePtr(), key);
+      value = valueStr === undefined ? undefined : valueStr;
+    }
+    return value;
+  }
+
+  setMeasuredSize(size: Size): void {
+    getUINativeModule().frameNode.setMeasuredSize(this.getNodePtr(), Math.max(size.width, 0),
+      Math.max(size.height, 0));
+  }
+
+  setLayoutPosition(position: Position): void {
+    getUINativeModule().frameNode.setLayoutPosition(this.getNodePtr(), position.x, position.y);
+  }
+
+  measure(constraint: LayoutConstraint): void {
+    const minSize: Size = constraint.minSize;
+    const maxSize: Size = constraint.maxSize;
+    const percentReference: Size = constraint.percentReference;
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    getUINativeModule().frameNode.measureNode(this.getNodePtr(), minSize.width, minSize.height, maxSize.width,
+      maxSize.height, percentReference.width, percentReference.height);
+    __JSScopeUtil__.restoreInstanceId();
+  }
+
+  layout(position: Position): void {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    getUINativeModule().frameNode.layoutNode(this.getNodePtr(), position.x, position.y);
+    __JSScopeUtil__.restoreInstanceId();
+  }
+
+  setNeedsLayout(): void {
+    getUINativeModule().frameNode.setNeedsLayout(this.getNodePtr());
+  }
+
+  setCrossLanguageOptions(options: CrossLanguageOptions): void {
+    if (!this.isModifiable()) {
+      throw { message: 'The FrameNode cannot be set whether to support cross-language common attribute setting.', code: 100022 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const result = getUINativeModule().frameNode.setCrossLanguageOptions(this.getNodePtr(), options.attributeSetting ?? false);
+    __JSScopeUtil__.restoreInstanceId();
+    if (result !== 0) {
+      throw { message: 'The FrameNode cannot be set whether to support cross-language common attribute setting.', code: 100022 };
+    }
+  }
+
+  getCrossLanguageOptions(): CrossLanguageOptions {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const attributeSetting = getUINativeModule().frameNode.getCrossLanguageOptions(this.getNodePtr());
+    __JSScopeUtil__.restoreInstanceId();
+    return { attributeSetting: attributeSetting ?? false };
+  }
+
+  checkIfCanCrossLanguageAttributeSetting(): boolean {
+    return this.isModifiable() || getUINativeModule().frameNode.checkIfCanCrossLanguageAttributeSetting(this.getNodePtr());
+  }
+
+  getInteractionEventBindingInfo(eventType: EventQueryType): InteractionEventBindingInfo {
+    if (eventType === undefined || eventType === null) {
+      return undefined;
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const eventBindingInfo = getUINativeModule().frameNode.getInteractionEventBindingInfo(this.getNodePtr(), eventType);
+    __JSScopeUtil__.restoreInstanceId();
+    if (!eventBindingInfo || (!eventBindingInfo.baseEventRegistered && !eventBindingInfo.nodeEventRegistered &&
+      !eventBindingInfo.nativeEventRegistered && !eventBindingInfo.builtInEventRegistered)) {
+      return undefined;
+    }
+    return {
+      baseEventRegistered: eventBindingInfo.baseEventRegistered,
+      nodeEventRegistered: eventBindingInfo.nodeEventRegistered,
+      nativeEventRegistered: eventBindingInfo.nativeEventRegistered,
+      builtInEventRegistered: eventBindingInfo.builtInEventRegistered,
+    };
+  }
+
+  get commonAttribute(): ArkComponent {
+    if (this._commonAttribute === undefined) {
+      this._commonAttribute = new ArkComponent(this.nodePtr_, ModifierType.FRAME_NODE);
+    }
+    this._commonAttribute.setNodePtr(this.nodePtr_);
+    this._commonAttribute.setInstanceId((this.uiContext_ === undefined || this.uiContext_ === null) ? -1 : this.uiContext_.instanceId_);
+    return this._commonAttribute;
+  }
+
+  get commonEvent(): UICommonEvent {
+    let node = this.getNodePtr();
+    if (this._commonEvent === undefined) {
+      this._commonEvent = new UICommonEvent(node);
+    }
+    this._commonEvent.setNodePtr(node);
+    this._commonEvent.setInstanceId((this.uiContext_ === undefined || this.uiContext_ === null) ? -1 : this.uiContext_.instanceId_);
+    return this._commonEvent;
+  }
+
+  get gestureEvent(): UIGestureEvent {
+    if (this._gestureEvent === undefined) {
+      this._gestureEvent = new UIGestureEvent();
+      this._gestureEvent.setNodePtr(this.nodePtr_);
+      let weakPtr = getUINativeModule().nativeUtils.createNativeWeakRef(this.nodePtr_);
+      this._gestureEvent.setWeakNodePtr(weakPtr);
+      __JSScopeUtil__.syncInstanceId(this.instanceId_);
+      this._gestureEvent.registerFrameNodeDeletedCallback(this.nodePtr_);
+      __JSScopeUtil__.restoreInstanceId();
+    }
+    return this._gestureEvent;
+  }
+  updateInstance(uiContext: UIContext): void {
+    this.uiContext_ = uiContext;
+    this.instanceId_ = uiContext.instanceId_;
+  }
+  createAnimation(property: AnimationPropertyType, startValue: number[] | undefined, endValue: number[], param: AnimateParam): boolean {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.createAnimation(this.getNodePtr(), property, startValue, endValue, param);
+    __JSScopeUtil__.restoreInstanceId();
+    return result;
+  }
+  cancelAnimations(properties: AnimationPropertyType[]): boolean {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.cancelAnimations(this.getNodePtr(), properties);
+    __JSScopeUtil__.restoreInstanceId();
+    return result;
+  }
+  getNodePropertyValue(property: AnimationPropertyType): number[] {
+    return getUINativeModule().frameNode.getNodePropertyValue(this.getNodePtr(), property);
+  }
+  triggerOnReuse(): void {
+    getUINativeModule().frameNode.triggerOnReuse(this.getNodePtr());
+  }
+  triggerOnRecycle(): void {
+    getUINativeModule().frameNode.triggerOnRecycle(this.getNodePtr());
+  }
+  reuse(): void {
+    this.triggerOnReuse();
+  }
+  recycle(): void {
+    this.triggerOnRecycle();
+  }
+  addSupportedUIStates(uiStates: number, statesChangeHandler: UIStatesChangeHandler, excludeInner?: boolean): void {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    this.statesChangeHandler_ = (currentUIStates: number) => {
+      if (statesChangeHandler !== null && statesChangeHandler !== undefined) {
+        statesChangeHandler(this, currentUIStates);
+      }
+    }
+    let result = getUINativeModule().frameNode.addSupportedStates(this.getNodePtr(), uiStates,
+      this.statesChangeHandler_, excludeInner);
+    if (result === true) {
+      this.supportedStates_ |= uiStates;
+    } else {
+      JSXNodeLogConsole.warn('add supported uistates fail');
+    }
+    __JSScopeUtil__.restoreInstanceId();
+  }
+  removeSupportedUIStates(uiStates: number): void {
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.removeSupportedStates(this.getNodePtr(), uiStates);
+    if (result === true) {
+      this.supportedStates_ &= ~uiStates;
+      if (this.supportedStates_ === UIState.NORMAL) {
+        this.statesChangeHandler_ = undefined;
+      }
+    } else {
+      JSXNodeLogConsole.warn('remove supported uistates fail');
+    }
+    __JSScopeUtil__.restoreInstanceId();
+  }
+  invalidateAttributes(): void {
+    if (this.getNodePtr()) {
+      getUINativeModule().frameNode.applyAttributesFinish(this.nodePtr_);
+    }
+  }
+  convertPosition(position, targetNode): Position {
+    if (targetNode === null) {
+      throw { message: "The parameter 'targetNode' is invalid: it cannot be null. Please pass a non-null FrameNode object.", code: 100025 };
+    }
+    if (targetNode === undefined) {
+      throw { message: "The parameter 'targetNode' is invalid: it cannot be undefined.", code: 100025 };
+    }
+    if (targetNode.isDisposed()) {
+      throw { message: "The parameter 'targetNode' is invalid: the node has already been disposed. Check the node's status with 'isDisposed()' before passing it.", code: 100025 };
+    }
+    if (position === undefined) {
+      throw { message: "The parameter 'position' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.", code: 100025 };
+    }
+    if (position === null) {
+      throw { message: "The parameter 'position' is invalid: it cannot be null. Provide a non-null position object.", code: 100025 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const offsetPosition = getUINativeModule().frameNode.convertPoint(
+      this.getNodePtr(), position.x, position.y, targetNode.nodePtr_);
+    __JSScopeUtil__.restoreInstanceId();
+    if (offsetPosition[0] === 0) {
+      throw { message: 'The current FrameNode and the target FrameNode do not have a common ancestor node.', code: 100024 };
+    }
+    return { x: offsetPosition[1], y: offsetPosition[2] };
+  }
+  convertPositionToWindow(positionByLocal: Position): Position {
+    if (positionByLocal === undefined) {
+      throw new BusinessError(401, "The parameter 'positionByLocal' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.");
+    }
+    if (positionByLocal === null) {
+      throw new BusinessError(401, "The parameter 'positionByLocal' is invalid: it cannot be null. Provide a non-null position object.");
+    }
+    if (this.isDisposed()) {
+      throw new BusinessError(100026, 'The current FrameNode has been disposed.');
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const offsetPosition = getUINativeModule().frameNode.convertPositionToWindow(
+      this.getNodePtr(), positionByLocal.x, positionByLocal.y);
+    __JSScopeUtil__.restoreInstanceId();
+    if (offsetPosition[0] === 2) {
+      throw new BusinessError(401, "The param 'x' or 'y' of the parameter 'positionByLocal' is invalid.");
+    }
+    if (offsetPosition[0] === 0) {
+      throw new BusinessError(100028, 'The current FrameNode is not on the main tree.');
+    }
+    return { x: offsetPosition[1], y: offsetPosition[2] };
+  }
+  convertPositionFromWindow(positionByWindow: Position): Position {
+    if (positionByWindow === undefined) {
+      throw new BusinessError(401, "The parameter 'positionByWindow' is invalid: it cannot be undefined. Provide a valid position object with x and y properties.");
+    }
+    if (positionByWindow === null) {
+      throw new BusinessError(401, "The parameter 'positionByWindow' is invalid: it cannot be null. Provide a non-null position object.");
+    }
+    if (this.isDisposed()) {
+      throw new BusinessError(100026, 'The current FrameNode has been disposed.');
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    const offsetPosition = getUINativeModule().frameNode.convertPositionFromWindow(
+      this.getNodePtr(), positionByWindow.x, positionByWindow.y);
+    __JSScopeUtil__.restoreInstanceId();
+    if (offsetPosition[0] === 2) {
+      throw new BusinessError(401, "The param 'x' or 'y' of the parameter 'positionByWindow' is invalid.");
+    }
+    if (offsetPosition[0] === 0) {
+      throw new BusinessError(100028, 'The current FrameNode is not on the main tree.');
+    }
+    return { x: offsetPosition[1], y: offsetPosition[2] };
+  }
+  isTransferred(): boolean {
+    return false;
+  }
+  adoptChild(child: FrameNode): void {
+    if (child === undefined || child === null) {
+      throw { message: "The parameter 'child' is invalid: the child node is undefined or null.", code: 100025 };
+    }
+    if (this.isDisposed()) {
+      throw { message: 'The current node has been disposed.', code: 100026 };
+    }
+    if (!this.isModifiable()) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    if (child.getType() === 'ProxyFrameNode' || !this.checkValid(child)) {
+      throw { message: "The parameter 'child' is invalid: the child node is not modifiable.", code: 100025 };
+    }
+    if (child.isDisposed()) {
+      throw { message: "The parameter 'child' is invalid: the child node has been disposed.", code: 100025 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.adoptChild(this.getNodePtr(), child.getNodePtr());
+    __JSScopeUtil__.restoreInstanceId();
+    let errorInfo = errorMap_.get(result);
+    if (errorInfo !== undefined) {
+      throw { message: errorInfo, code: 100025 };
+    }
+  }
+  removeAdoptedChild(child: FrameNode): void {
+    if (child === undefined || child === null) {
+      throw { message: "The parameter 'child' is invalid: the child node is undefined or null.", code: 100025 };
+    }
+    if (this.isDisposed()) {
+      throw { message: 'The current node has been disposed.', code: 100026 };
+    }
+    if (!this.isModifiable()) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    if (child.getType() === 'ProxyFrameNode' || !this.checkValid(child)) {
+      throw { message: "The parameter 'child' is invalid: the child node is not modifiable.", code: 100025 };
+    }
+    if (child.isDisposed()) {
+      throw { message: "The parameter 'child' is invalid: the child node has been disposed.", code: 100025 };
+    }
+    __JSScopeUtil__.syncInstanceId(this.instanceId_);
+    let result = getUINativeModule().frameNode.removeAdoptedChild(this.getNodePtr(), child.getNodePtr());
+    __JSScopeUtil__.restoreInstanceId();
+    let errorInfo = errorMap_.get(result);
+    if (errorInfo !== undefined) {
+      throw { message: errorInfo, code: 100025 };
+    }
+  }
+  isInRenderState(): boolean {
+    if (this.getNodePtr()) {
+      return getUINativeModule().frameNode.isOnRenderTree(this.nodePtr_);
+    }
+    return false;
+  }
+}
+
+class ImmutableFrameNode extends FrameNode {
+  isModifiable(): boolean {
+    return false;
+  }
+  invalidate() {
+    return;
+  }
+  appendChild(node: FrameNode): void {
+    throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+  }
+  insertChildAfter(child: FrameNode, sibling: FrameNode): void {
+    throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+  }
+  removeChild(node: FrameNode): void {
+    throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+  }
+  clearChildren(): void {
+    throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+  }
+  get commonAttribute(): ArkComponent {
+    if (this._commonAttribute === undefined) {
+      this._commonAttribute = new ArkComponent(undefined, ModifierType.FRAME_NODE);
+    }
+    this._commonAttribute.setNodePtr(undefined);
+    return this._commonAttribute;
+  }
+  createAnimation(property: AnimationPropertyType, startValue: number[] | undefined, endValue: number[], param: AnimateParam): boolean {
+    JSXNodeLogConsole.warn("can't create animation on unmodifiable frameNode");
+    return false;
+  }
+  cancelAnimations(properties: AnimationPropertyType[]): boolean {
+    JSXNodeLogConsole.warn("can't cancel animation on unmodifiable frameNode");
+    return false;
+  }
+}
+
+class BuilderRootFrameNode extends ImmutableFrameNode {
+  constructor(uiContext: UIContext, type: string = 'BuilderRootFrameNode', ptr?: number) {
+    super(uiContext, type, undefined, ptr);
+  }
+  getType(): string {
+    return 'BuilderRootFrameNode';
+  }
+}
+
+class ProxyFrameNode extends ImmutableFrameNode {
+  _nativeRef: NativeWeakRef;
+
+  constructor(uiContext: UIContext, type: string = 'ProxyFrameNode') {
+    super(uiContext, type);
+  }
+
+  setNodePtr(nativeRef: NativeWeakRef) {
+    this._nativeRef = nativeRef;
+    this.nodePtr_ = this._nativeRef.getNativeHandle();
+  }
+  getType(): string {
+    return 'ProxyFrameNode';
+  }
+  getRenderNode(): RenderNode | null {
+    return null;
+  }
+  getNodePtr(): NodePtr | null {
+    if (this._nativeRef === undefined || this._nativeRef === null || this._nativeRef.invalid()) {
+      return null;
+    }
+    return this.nodePtr_;
+  }
+  moveTo(targetParent: FrameNode, index?: number): void {
+    throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+  }
+}
+
+class FrameNodeUtils {
+  static searchNodeInRegisterProxy(nodePtr: NodePtr): FrameNode | null {
+    let nodeId = getUINativeModule().frameNode.getIdByNodePtr(nodePtr);
+    if (nodeId === -1) {
+      return null;
+    }
+    if (FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.has(nodeId)) {
+      let frameNode = FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.get(nodeId).deref();
+      return frameNode === undefined ? null : frameNode;
+    }
+    return null;
+  }
+
+  static createFrameNode(uiContext: UIContext, nodePtr: NodePtr): FrameNode | null {
+    let nodeId = getUINativeModule().frameNode.getIdByNodePtr(nodePtr);
+    if (nodeId !== -1 && !getUINativeModule().frameNode.isModifiable(nodePtr)) {
+      let frameNode = new ProxyFrameNode(uiContext);
+      let node = getUINativeModule().nativeUtils.createNativeWeakRef(nodePtr);
+      frameNode.setNodePtr(node);
+      frameNode._nodeId = nodeId;
+      FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.set(nodeId, new WeakRef(frameNode));
+      FrameNodeFinalizationRegisterProxy.register(frameNode, nodeId);
+      return frameNode;
+    }
+    return null;
+  }
+}
+
+class TypedFrameNode<T extends ArkComponent> extends FrameNode {
+  attribute_: T;
+  attrCreator_: (node: NodePtr, type: ModifierType) => T
+
+  constructor(uiContext: UIContext, type: string, attrCreator: (node: NodePtr, type: ModifierType) => T, options?: object) {
+    super(uiContext, type, options);
+    this.attrCreator_ = attrCreator;
+  }
+
+  dispose() {
+    this._isDisposed = true;
+    if (this.nodePtr_) {
+      getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this), 'FrameNode', this.getNodeType() || 'FrameNode', this.nodePtr_);
+    }
+    FrameNodeFinalizationRegisterProxy.ElementIdToOwningFrameNode_.delete(this._nodeId);
+    this._nodeId = -1;
+    this._nativeRef?.dispose();
+    this._nativeRef = null;
+    this.nodePtr_ = null;
+  }
+
+  initialize(...args: Object[]): T {
+    return this.attribute.initialize(args);
+  }
+
+  get attribute(): T {
+    if (this.attribute_ === undefined) {
+      this.attribute_ = this.attrCreator_(this.nodePtr_, ModifierType.FRAME_NODE);
+    }
+    this.attribute_.setNodePtr(this.nodePtr_);
+    this.attribute_.setInstanceId((this.uiContext_ === undefined || this.uiContext_ === null) ? -1 : this.uiContext_.instanceId_);
+    return this.attribute_;
+  }
+
+  checkValid(node?: FrameNode): boolean {
+    if (this.attribute_ === undefined) {
+      this.attribute_ = this.attrCreator_(this.nodePtr_, ModifierType.FRAME_NODE);
+    }
+
+    if (this.attribute_.allowChildCount !== undefined) {
+      const allowCount = this.attribute_.allowChildCount();
+      if (this.getChildrenCount() >= allowCount) {
+        return false;
+      }
+    }
+
+    if (this.attribute_.allowChildTypes !== undefined && node !== undefined) {
+      const childType = node.getNodeType();
+      const allowTypes = this.attribute_.allowChildTypes();
+      let isValid = false;
+      allowTypes.forEach((nodeType: string) => {
+        if (nodeType === childType) {
+          isValid = true;
+        }
+      });
+      return isValid;
+    }
+    return true;
+  }
+}
+
+const __creatorMap__ = new Map<string, (context: UIContext, options?: object) => FrameNode>(
+  [
+    ['Text', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Text', (node: NodePtr, type: ModifierType): ArkTextComponent => {
+        return new ArkTextComponent(node, type);
+      })
+    }],
+    ['Column', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Column', (node: NodePtr, type: ModifierType): ArkColumnComponent => {
+        return new ArkColumnComponent(node, type);
+      })
+    }],
+    ['Row', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Row', (node: NodePtr, type: ModifierType): ArkRowComponent => {
+        return new ArkRowComponent(node, type);
+      })
+    }],
+    ['Stack', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Stack', (node: NodePtr, type: ModifierType): ArkStackComponent => {
+        return new ArkStackComponent(node, type);
+      })
+    }],
+    ['GridRow', (context: UIContext): FrameNode => {
+      let node = new TypedFrameNode(context, 'GridRow', (node: NodePtr, type: ModifierType): ArkGridRowComponent => {
+        return new ArkGridRowComponent(node, type);
+      });
+      node.initialize();
+      return node;
+    }],
+    ['TextInput', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'TextInput', (node: NodePtr, type: ModifierType): ArkTextInputComponent => {
+        return new ArkTextInputComponent(node, type);
+      })
+    }],
+    ['GridCol', (context: UIContext): FrameNode => {
+      let node = new TypedFrameNode(context, 'GridCol', (node: NodePtr, type: ModifierType): ArkGridColComponent => {
+        return new ArkGridColComponent(node, type);
+      });
+      node.initialize();
+      return node;
+    }],
+    ['Blank', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Blank', (node: NodePtr, type: ModifierType): ArkBlankComponent => {
+        return new ArkBlankComponent(node, type);
+      })
+    }],
+    ['Image', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Image', (node: NodePtr, type: ModifierType): ArkImageComponent => {
+        return new ArkImageComponent(node, type);
+      })
+    }],
+    ['Flex', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Flex', (node: NodePtr, type: ModifierType): ArkFlexComponent => {
+        return new ArkFlexComponent(node, type);
+      })
+    }],
+    ['Swiper', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Swiper', (node: NodePtr, type: ModifierType): ArkSwiperComponent => {
+        return new ArkSwiperComponent(node, type);
+      })
+    }],
+    ['Progress', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Progress', (node: NodePtr, type: ModifierType): ArkProgressComponent => {
+        return new ArkProgressComponent(node, type);
+      })
+    }],
+    ['Scroll', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Scroll', (node: NodePtr, type: ModifierType): ArkScrollComponent => {
+        return new ArkScrollComponent(node, type);
+      })
+    }],
+    ['RelativeContainer', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'RelativeContainer', (node: NodePtr, type: ModifierType): ArkRelativeContainerComponent => {
+        return new ArkRelativeContainerComponent(node, type);
+      })
+    }],
+    ['List', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'List', (node: NodePtr, type: ModifierType): ArkListComponent => {
+        return new ArkListComponent(node, type);
+      })
+    }],
+    ['ListItem', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'ListItem', (node: NodePtr, type: ModifierType): ArkListItemComponent => {
+        return new ArkListItemComponent(node, type);
+      })
+    }],
+    ['Divider', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Divider', (node: NodePtr, type: ModifierType): ArkDividerComponent => {
+        return new ArkDividerComponent(node, type);
+      })
+    }],
+    ['LoadingProgress', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'LoadingProgress', (node: NodePtr, type: ModifierType): ArkLoadingProgressComponent => {
+        return new ArkLoadingProgressComponent(node, type);
+      })
+    }],
+    ['Search', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Search', (node: NodePtr, type: ModifierType): ArkSearchComponent => {
+        if (__componentCreator__.createSearchComponent === undefined) {
+          getUINativeModule().loadNativeModule('Search');
+          let module = globalThis.requireNapi('arkui.components.arksearch');
+          __componentCreator__.createSearchComponent = module.createComponent;
+        }
+        return __componentCreator__.createSearchComponent!(node, type);
+      })
+    }],
+    ['Button', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Button', (node: NodePtr, type: ModifierType): ArkButtonComponent => {
+        return new ArkButtonComponent(node, type);
+      })
+    }],
+    ['XComponent', (context: UIContext, options?: object): FrameNode => {
+      return new TypedFrameNode(context, 'XComponent', (node: NodePtr, type: ModifierType): ArkXComponentComponent => {
+        return new ArkXComponentComponent(node, type);
+      }, options);
+    }],
+    ['ListItemGroup', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'ListItemGroup', (node: NodePtr, type: ModifierType): ArkListItemGroupComponent => {
+        return new ArkListItemGroupComponent(node, type);
+      })
+    }],
+    ['WaterFlow', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'WaterFlow', (node: NodePtr, type: ModifierType): ArkWaterFlowComponent => {
+        getUINativeModule().loadNativeModule('WaterFlow');
+        let module = globalThis.requireNapi('arkui.components.arkwaterflow');
+        return module.createComponent(node, type);
+      })
+    }],
+    ['SymbolGlyph', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'SymbolGlyph', (node: NodePtr, type: ModifierType): ArkSymbolGlyphComponent => {
+        if (__componentCreator__.createSymbolGlyphComponent === undefined) {
+          getUINativeModule().loadNativeModule('SymbolGlyph');
+          let module = globalThis.requireNapi('arkui.components.arksymbolglyph');
+          __componentCreator__.createSymbolGlyphComponent = module.createComponent;
+        }
+        return __componentCreator__.createSymbolGlyphComponent!(node, type);
+      })
+    }],
+    ['FlowItem', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'FlowItem', (node: NodePtr, type: ModifierType): ArkFlowItemComponent => {
+        getUINativeModule().loadNativeModule('FlowItem');
+        let module = globalThis.requireNapi('arkui.components.arkflowitem');
+        return module.createComponent(node, type);
+      })
+    }],
+    ['QRCode', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'QRCode', (node: NodePtr, type: ModifierType): ArkQRCodeComponent => {
+        getUINativeModule().loadNativeModule('QRCode');
+ 	    let module = globalThis.requireNapi('arkui.components.arkqrcode');
+ 	    return module.createComponent(node, type);
+      })
+    }],
+    ['Badge', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Badge', (node: NodePtr, type: ModifierType): ArkBadgeComponent => {
+        return new ArkBadgeComponent(node, type);
+      })
+    }],
+    ['Grid', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Grid', (node: NodePtr, type: ModifierType): ArkGridComponent => {
+        return new ArkGridComponent(node, type);
+      })
+    }],
+    ['GridItem', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'GridItem', (node: NodePtr, type: ModifierType): ArkGridItemComponent => {
+        return new ArkGridItemComponent(node, type);
+      })
+    }],
+    ['TextClock', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'TextClock', (node: NodePtr, type: ModifierType): ArkQRCodeComponent => {
+        getUINativeModule().loadNativeModule('TextClock');
+        let module = globalThis.requireNapi('arkui.components.arktextclock');
+        return module.createComponent(node, type);
+      })
+    }],
+    ['TextTimer', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'TextTimer', (node: NodePtr, type: ModifierType): ArkTextTimerComponent => {
+        return new ArkTextTimerComponent(node, type);
+      })
+    }],
+    ['Marquee', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Marquee', (node: NodePtr, type: ModifierType): ArkMarqueeComponent => {
+        if (__componentCreator__.createMarqueeComponent === undefined) {
+          getUINativeModule().loadNativeModule('Marquee');
+          let module = globalThis.requireNapi('arkui.components.arkmarquee');
+          __componentCreator__.createMarqueeComponent = module.createComponent;
+        }
+        return __componentCreator__.createMarqueeComponent!(node, type);
+      })
+    }],
+    ['TextArea', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'TextArea', (node: NodePtr, type: ModifierType): ArkTextAreaComponent => {
+        return new ArkTextAreaComponent(node, type);
+      })
+    }],
+    ['Checkbox', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Checkbox', (node: NodePtr, type: ModifierType): ArkCheckboxComponent => {
+        getUINativeModule().loadNativeModule('Checkbox');
+        let module = globalThis.requireNapi('arkui.components.arkcheckbox');
+        return module.createComponent(node, type);
+      });
+    }],
+    ['CheckboxGroup', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'CheckboxGroup', (node: NodePtr, type: ModifierType): ArkCheckboxGroupComponent => {
+        getUINativeModule().loadNativeModule('CheckboxGroup');
+        let module = globalThis.requireNapi('arkui.components.arkcheckboxgroup');
+        return module.createComponent(node, type);
+      });
+    }],
+    ['Radio', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Radio', (node: NodePtr, type: ModifierType): ArkRadioComponent => {
+        getUINativeModule().loadNativeModule('Radio');
+        let module = globalThis.requireNapi('arkui.components.arkradio');
+        return module.createComponent(node, type);
+      });
+    }],
+    ['Rating', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Rating', (node: NodePtr, type: ModifierType): ArkRatingComponent => {
+        getUINativeModule().loadNativeModule('Rating');
+        let module = globalThis.requireNapi('arkui.components.arkrating');
+        return module.createComponent(node, type);
+      });
+    }],
+    ['Slider', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Slider', (node: NodePtr, type: ModifierType): ArkSliderComponent => {
+           getUINativeModule().loadNativeModule('Slider');
+ 	         let module = globalThis.requireNapi('arkui.components.arkslider');
+ 	         return module.createComponent(node, type);
+      });
+    }],
+    ['Select', (context: UIContext): FrameNode => {
+      return new TypedFrameNode(context, 'Select', (node: NodePtr, type: ModifierType): ArkSelectComponent => {
+        return new ArkSelectComponent(node, type);
+      });
+    }],
+    ['Toggle', (context: UIContext, options?: object): FrameNode => {
+      return new TypedFrameNode(context, 'Toggle', (node: NodePtr, type: ModifierType): ArkToggleComponent => {
+        return new ArkToggleComponent(node, type);
+      }, options);
+    }],
+  ]
+)
+
+const __attributeMap__ = new Map<string, (node: FrameNode) => ArkComponent>(
+  [
+    ['Swiper', (node: FrameNode): ArkSwiperComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkSwiperComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Scroll', (node: FrameNode): ArkScrollComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkScrollComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['List', (node: FrameNode): ArkListComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkListComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['ListItem', (node: FrameNode): ArkListItemComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkListItemComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['ListItemGroup', (node: FrameNode): ArkListItemGroupComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkListItemGroupComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['WaterFlow', (node: FrameNode): ArkWaterFlowComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      getUINativeModule().loadNativeModule('WaterFlow');
+      let module = globalThis.requireNapi('arkui.components.arkwaterflow');
+      node._componentAttribute = module.createComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['FlowItem', (node: FrameNode): ArkFlowItemComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      getUINativeModule().loadNativeModule('FlowItem');
+      let module = globalThis.requireNapi('arkui.components.arkflowitem');
+      node._componentAttribute = module.createComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Grid', (node: FrameNode): ArkGridComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkGridComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['GridItem', (node: FrameNode): ArkGridItemComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkGridItemComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Text', (node: FrameNode): ArkTextComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkTextComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['TextInput', (node: FrameNode): ArkTextInputComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkTextInputComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['TextArea', (node: FrameNode): ArkTextAreaComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkTextAreaComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Button', (node: FrameNode): ArkButtonComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkButtonComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Checkbox', (node: FrameNode): ArkCheckboxComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      getUINativeModule().loadNativeModule('Checkbox');
+      let module = globalThis.requireNapi('arkui.components.arkcheckbox');
+      node._componentAttribute = module.createComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Radio', (node: FrameNode): ArkRadioComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      getUINativeModule().loadNativeModule('Radio');
+      let module = globalThis.requireNapi('arkui.components.arkradio');
+      node._componentAttribute = module.createComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Slider', (node: FrameNode): ArkSliderComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      getUINativeModule().loadNativeModule('Slider');
+      let module = globalThis.requireNapi('arkui.components.arkslider');
+      node._componentAttribute = module.createComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Toggle', (node: FrameNode): ArkToggleComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkToggleComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Column', (node: FrameNode): ArkColumnComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkColumnComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Row', (node: FrameNode): ArkRowComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkRowComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Stack', (node: FrameNode): ArkStackComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkStackComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Flex', (node: FrameNode): ArkFlexComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkFlexComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['RelativeContainer', (node: FrameNode): ArkRelativeContainerComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkRelativeContainerComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['XComponent', (node: FrameNode): ArkXComponentComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkXComponentComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Progress', (node: FrameNode): ArkProgressComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkProgressComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['LoadingProgress', (node: FrameNode): ArkLoadingProgressComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkLoadingProgressComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }],
+    ['Image', (node: FrameNode): ArkImageComponent => {
+      if (node._componentAttribute) {
+        return node._componentAttribute;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._componentAttribute = new ArkImageComponent(node.getNodePtr(), ModifierType.FRAME_NODE);
+      return node._componentAttribute;
+    }]
+  ]
+)
+
+const __eventMap__ = new Map<string, (node: FrameNode) => UICommonEvent>(
+  [
+    ['List', (node: FrameNode): UIListEvent => {
+      if (node._scrollableEvent) {
+        return node._scrollableEvent;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._scrollableEvent = new UIListEvent(node.getNodePtr());
+      node._scrollableEvent.setNodePtr(node.getNodePtr());
+      node._scrollableEvent.setInstanceId((node.uiContext_ === undefined || node.uiContext_ === null) ? -1 : node.uiContext_.instanceId_);
+      return node._scrollableEvent;
+    }],
+    ['Scroll', (node: FrameNode): UIScrollEvent => {
+      if (node._scrollableEvent) {
+        return node._scrollableEvent;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._scrollableEvent = new UIScrollEvent(node.getNodePtr());
+      node._scrollableEvent.setNodePtr(node.getNodePtr());
+      node._scrollableEvent.setInstanceId((node.uiContext_ === undefined || node.uiContext_ === null) ? -1 : node.uiContext_.instanceId_);
+      return node._scrollableEvent;
+    }],
+    ['Grid', (node: FrameNode): UIGridEvent => {
+      if (node._scrollableEvent) {
+        return node._scrollableEvent;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._scrollableEvent = new UIGridEvent(node.getNodePtr());
+      node._scrollableEvent.setNodePtr(node.getNodePtr());
+      node._scrollableEvent.setInstanceId((node.uiContext_ === undefined || node.uiContext_ === null) ? -1 : node.uiContext_.instanceId_);
+      return node._scrollableEvent;
+    }],
+    ['WaterFlow', (node: FrameNode): UIWaterFlowEvent => {
+      if (node._scrollableEvent) {
+        return node._scrollableEvent;
+      }
+      if (!node.getNodePtr()) {
+        return undefined;
+      }
+      node._scrollableEvent = new UIWaterFlowEvent(node.getNodePtr());
+      node._scrollableEvent.setNodePtr(node.getNodePtr());
+      node._scrollableEvent.setInstanceId((node.uiContext_ === undefined || node.uiContext_ === null) ? -1 : node.uiContext_.instanceId_);
+      return node._scrollableEvent;
+    }]
+  ]
+)
+
+type Controller = Scroller | SwiperController | TextController | TextInputController | TextAreaController
+
+const __bindControllerCallbackMap__ = new Map<string, (node: FrameNode, controller: Controller) => void>(
+  [
+    ['Swiper', (node: FrameNode, controller: SwiperController) => {
+      getUINativeModule().swiper.setSwiperInitialize(node.getNodePtr(), controller);
+    }],
+    ['Scroll', (node: FrameNode, controller: Scroller) => {
+      getUINativeModule().scroll.setScrollInitialize(node.getNodePtr(), controller);
+    }],
+    ['List', (node: FrameNode, controller: Scroller) => {
+      getUINativeModule().list.setInitialScroller(node.getNodePtr(), controller, true);
+    }],
+    ['WaterFlow', (node: FrameNode, controller: Scroller) => {
+      getUINativeModule().waterFlow.setWaterFlowScroller(node.getNodePtr(), controller);
+    }],
+    ['Grid', (node: FrameNode, controller: Scroller) => {
+      getUINativeModule().grid.setGridScroller(node.getNodePtr(), controller, true);
+    }],
+    ['Text', (node: FrameNode, controller: TextController) => {
+      getUINativeModule().text.setTextController(node.getNodePtr(), { controller: controller });
+    }],
+    ['TextInput', (node: FrameNode, controller: TextInputController) => {
+      getUINativeModule().textInput.setController(node.getNodePtr(), controller);
+    }],
+    ['TextArea', (node: FrameNode, controller: TextAreaController) => {
+      getUINativeModule().textArea.setController(node.getNodePtr(), controller);
+    }]
+  ]
+)
+
+class typeNode {
+  static createNode(context: UIContext, type: string, options?: object): FrameNode {
+    let creator = __creatorMap__.get(type)
+    if (creator === undefined) {
+      return undefined
+    }
+    return creator(context, options);
+  }
+
+  static getAttribute(node: FrameNode, nodeType: string): ArkComponent {
+    if (node === undefined || node === null || node.getNodeType() !== nodeType) {
+      return undefined;
+    }
+    if (!node.checkIfCanCrossLanguageAttributeSetting()) {
+      return undefined;
+    }
+    let attribute = __attributeMap__.get(nodeType);
+    if (attribute === undefined || attribute === null) {
+      return undefined;
+    }
+    return attribute(node);
+  }
+
+  static getEvent(node: FrameNode, nodeType: string): UICommonEvent {
+    if (node === undefined || node === null || node.getNodeType() !== nodeType) {
+      return undefined;
+    }
+    let event = __eventMap__.get(nodeType);
+    if (event === undefined || event === null) {
+      return undefined;
+    }
+    return event(node);
+  }
+
+  static bindController(node: FrameNode, controller: Controller, nodeType: string): void {
+    if (node === undefined || node === null || controller === undefined || controller === null ||
+      node.getNodeType() !== nodeType || node.getNodePtr() === null || node.getNodePtr() === undefined) {
+      if (nodeType === undefined || nodeType === null || nodeType === 'Scroll') {
+        throw { message: 'Parameter error. Possible causes: 1. The type of the node is error; 2. The node is null or undefined.', code: 401 };
+      } else {
+        throw { message: 'Parameter error. Possible causes: 1. The component type of the node is incorrect. 2. The node is null or undefined. 3. The controller is null or undefined.', code: 100023 };
+      }
+    }
+    const needModifiableCheck = !['Scroll', 'List', 'Grid', 'WaterFlow'].includes(nodeType);
+    if (needModifiableCheck && !node.checkIfCanCrossLanguageAttributeSetting()) {
+      throw { message: 'The FrameNode is not modifiable.', code: 100021 };
+    }
+    let callback = __bindControllerCallbackMap__.get(nodeType);
+    if (callback === undefined || callback === null) {
+      return;
+    }
+    callback(node, controller);
+  }
+}

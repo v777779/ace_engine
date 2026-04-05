@@ -1,0 +1,1998 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include <cstdint>
+#include "native_styled_string.h"
+#include "node_extened.h"
+#include "node_model.h"
+#include "styled_string.h"
+
+#include "base/utils/utils.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+constexpr int NUM_0 = 0;
+constexpr int NUM_1 = 1;
+constexpr int NUM_2 = 2;
+constexpr int NUM_3 = 3;
+constexpr int NUM_4 = 4;
+constexpr int NUM_5 = 5;
+constexpr int32_t MAX_DISPLAY_COUNT_MIN = 6;
+constexpr int32_t MAX_DISPLAY_COUNT_MAX = 9;
+constexpr float DEFAULT_SIZE_18 = 18.0f;
+constexpr float DEFAULT_SIZE_24 = 24.0f;
+constexpr float DEFAULT_SIZE_32 = 32.0f;
+constexpr float ARROW_SIZE_COEFFICIENT = 0.75f;
+
+constexpr int EXPECTED_UPDATE_INTERVAL_VALUE = 1000;
+constexpr int EXPECTED_UPDATE_INTERVAL_MIN_VALUE = 100;
+constexpr float DEFAULT_VISIBLE_RATIO_MIN = 0.0f;
+constexpr float DEFAULT_VISIBLE_RATIO_MAX = 1.0f;
+
+ArkUI_LayoutConstraint* OH_ArkUI_LayoutConstraint_Create()
+{
+    ArkUI_LayoutConstraint* layoutConstraint = new ArkUI_LayoutConstraint { 0, 0, 0, 0, 0, 0 };
+    return layoutConstraint;
+}
+
+ArkUI_LayoutConstraint* OH_ArkUI_LayoutConstraint_Copy(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, nullptr);
+    ArkUI_LayoutConstraint* layoutConstraint = new ArkUI_LayoutConstraint { 0, 0, 0, 0, 0, 0 };
+    layoutConstraint->minWidth = constraint->minWidth;
+    layoutConstraint->maxWidth = constraint->maxWidth;
+    layoutConstraint->minHeight = constraint->minHeight;
+    layoutConstraint->maxHeight = constraint->maxHeight;
+    layoutConstraint->percentReferWidth = constraint->percentReferWidth;
+    layoutConstraint->percentReferHeight = constraint->percentReferHeight;
+    return layoutConstraint;
+}
+
+void* OH_ArkUI_LayoutConstraint_Dispose(ArkUI_LayoutConstraint* constraint)
+{
+    delete constraint;
+    return nullptr;
+}
+
+ArkUI_LayoutConstraint* OH_ArkUI_NodeCustomEvent_GetLayoutConstraintInMeasure(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, nullptr);
+    ArkUI_LayoutConstraint* layoutConstraint = new ArkUI_LayoutConstraint;
+    layoutConstraint->minWidth = event->event->data[NUM_0];
+    layoutConstraint->minHeight = event->event->data[NUM_1];
+    layoutConstraint->maxWidth = event->event->data[NUM_2];
+    layoutConstraint->maxHeight = event->event->data[NUM_3];
+    layoutConstraint->percentReferWidth = event->event->data[NUM_4];
+    layoutConstraint->percentReferHeight = event->event->data[NUM_5];
+    return layoutConstraint;
+}
+
+ArkUI_IntOffset OH_ArkUI_NodeCustomEvent_GetPositionInLayout(ArkUI_NodeCustomEvent* event)
+{
+    ArkUI_IntOffset intOffset = {.x = 0, .y = 0};
+    CHECK_NULL_RETURN(event, intOffset);
+    intOffset.x = event->event->data[NUM_0];
+    intOffset.y = event->event->data[NUM_1];
+    return intOffset;
+}
+
+ArkUI_DrawContext* OH_ArkUI_NodeCustomEvent_GetDrawContextInDraw(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, nullptr);
+    ArkUI_DrawContext* drawContext = new ArkUI_DrawContext();
+    drawContext->width = event->event->data[NUM_2];
+    drawContext->height = event->event->data[NUM_3];
+    drawContext->canvas = reinterpret_cast<void*>(event->event->canvas);
+    return drawContext;
+}
+
+int32_t OH_ArkUI_NodeCustomEvent_GetEventTargetId(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, -1);
+    return event->targetId;
+}
+
+void* OH_ArkUI_NodeCustomEvent_GetUserData(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, nullptr);
+    return event->userData;
+}
+
+ArkUI_NodeHandle OH_ArkUI_NodeCustomEvent_GetNodeHandle(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, nullptr);
+    return event->node;
+}
+
+ArkUI_NodeCustomEventType OH_ArkUI_NodeCustomEvent_GetEventType(ArkUI_NodeCustomEvent* event)
+{
+    CHECK_NULL_RETURN(event, static_cast<ArkUI_NodeCustomEventType>(-1));
+    return static_cast<ArkUI_NodeCustomEventType>(event->event->kind);
+}
+
+int32_t OH_ArkUI_NodeCustomEvent_GetCustomSpanMeasureInfo(
+    ArkUI_NodeCustomEvent* event, ArkUI_CustomSpanMeasureInfo* info)
+{
+    if (!event || !info || !event->event) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    info->fontSize = event->event->numberData[0].f32;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NodeCustomEvent_SetCustomSpanMetrics(
+    ArkUI_NodeCustomEvent* event, ArkUI_CustomSpanMetrics* metrics)
+{
+    if (!event || !metrics || !event->event) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    event->event->numberReturnData[0].f32 = metrics->width;
+    event->event->numberReturnData[1].f32 = metrics->height;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_NodeCustomEvent_GetCustomSpanDrawInfo(
+    ArkUI_NodeCustomEvent* event, ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!event || !info || !event->event) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    info->optionsX = event->event->numberData[0].f32; // 0: x offset
+    info->optionsLineTop = event->event->numberData[1].f32; // 1: LineTop value
+    info->optionsLineBottom = event->event->numberData[2].f32; // 2: LineBottom value
+    info->optionsBaseLine = event->event->numberData[3].f32; // 3: BaseLine value
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_CustomSpanMeasureInfo* OH_ArkUI_CustomSpanMeasureInfo_Create(void)
+{
+    ArkUI_CustomSpanMeasureInfo* info = new ArkUI_CustomSpanMeasureInfo { 0 };
+    return info;
+}
+
+void OH_ArkUI_CustomSpanMeasureInfo_Dispose(ArkUI_CustomSpanMeasureInfo* info)
+{
+    if (!info) {
+        return;
+    }
+    delete info;
+    info = nullptr;
+}
+
+float OH_ArkUI_CustomSpanMeasureInfo_GetFontSize(ArkUI_CustomSpanMeasureInfo* info)
+{
+    if (!info) {
+        return 0.0f;
+    }
+    return info->fontSize;
+}
+
+ArkUI_CustomSpanMetrics* OH_ArkUI_CustomSpanMetrics_Create(void)
+{
+    ArkUI_CustomSpanMetrics* metrics = new ArkUI_CustomSpanMetrics { 0, 0 };
+    return metrics;
+}
+
+void OH_ArkUI_CustomSpanMetrics_Dispose(ArkUI_CustomSpanMetrics* metrics)
+{
+    if (!metrics) {
+        return;
+    }
+    delete metrics;
+    metrics = nullptr;
+}
+
+int32_t OH_ArkUI_CustomSpanMetrics_SetWidth(ArkUI_CustomSpanMetrics* metrics, float width)
+{
+    if (!metrics) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    metrics->width = width;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_CustomSpanMetrics_SetHeight(ArkUI_CustomSpanMetrics* metrics, float height)
+{
+    if (!metrics) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    metrics->height = height;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_CustomSpanDrawInfo* OH_ArkUI_CustomSpanDrawInfo_Create(void)
+{
+    ArkUI_CustomSpanDrawInfo* info = new ArkUI_CustomSpanDrawInfo { 0, 0, 0, 0 };
+    return info;
+}
+
+void OH_ArkUI_CustomSpanDrawInfo_Dispose(ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!info) {
+        return;
+    }
+    delete info;
+    info = nullptr;
+}
+
+float OH_ArkUI_CustomSpanDrawInfo_GetXOffset(ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!info) {
+        return 0.0f;
+    }
+    return info->optionsX;
+}
+
+float OH_ArkUI_CustomSpanDrawInfo_GetLineTop(ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!info) {
+        return 0.0f;
+    }
+    return info->optionsLineTop;
+}
+
+float OH_ArkUI_CustomSpanDrawInfo_GetLineBottom(ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!info) {
+        return 0.0f;
+    }
+    return info->optionsLineBottom;
+}
+
+float OH_ArkUI_CustomSpanDrawInfo_GetBaseline(ArkUI_CustomSpanDrawInfo* info)
+{
+    if (!info) {
+        return 0.0f;
+    }
+    return info->optionsBaseLine;
+}
+
+int32_t OH_ArkUI_LayoutConstraint_GetMaxWidth(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->maxWidth;
+}
+int32_t OH_ArkUI_LayoutConstraint_GetMinWidth(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->minWidth;
+}
+int32_t OH_ArkUI_LayoutConstraint_GetMaxHeight(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->maxHeight;
+}
+int32_t OH_ArkUI_LayoutConstraint_GetMinHeight(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->minHeight;
+}
+int32_t OH_ArkUI_LayoutConstraint_GetPercentReferenceWidth(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->percentReferWidth;
+}
+int32_t OH_ArkUI_LayoutConstraint_GetPercentReferenceHeight(const ArkUI_LayoutConstraint* constraint)
+{
+    CHECK_NULL_RETURN(constraint, -1);
+    return constraint->percentReferHeight;
+}
+
+void OH_ArkUI_LayoutConstraint_SetMinWidth(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->minWidth = value;
+}
+void OH_ArkUI_LayoutConstraint_SetMaxWidth(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->maxWidth = value;
+}
+
+void OH_ArkUI_LayoutConstraint_SetMaxHeight(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->maxHeight = value;
+}
+void OH_ArkUI_LayoutConstraint_SetMinHeight(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->minHeight = value;
+}
+void OH_ArkUI_LayoutConstraint_SetPercentReferenceWidth(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->percentReferWidth = value;
+}
+void OH_ArkUI_LayoutConstraint_SetPercentReferenceHeight(ArkUI_LayoutConstraint* constraint, int32_t value)
+{
+    CHECK_NULL_VOID(constraint);
+    constraint->percentReferHeight = value;
+}
+
+void* OH_ArkUI_DrawContext_GetCanvas(ArkUI_DrawContext* context)
+{
+    return context ? context->canvas : nullptr;
+}
+ArkUI_IntSize OH_ArkUI_DrawContext_GetSize(ArkUI_DrawContext* context)
+{
+    ArkUI_IntSize intSize = {0, 0};
+    if (context == nullptr) {
+        return intSize;
+    }
+    intSize.width = context->width;
+    intSize.height = context->height;
+    return intSize;
+}
+
+ArkUI_SwiperIndicator* OH_ArkUI_SwiperIndicator_Create(ArkUI_SwiperIndicatorType indicatorType)
+{
+    if (indicatorType != ARKUI_SWIPER_INDICATOR_TYPE_DOT) {
+        return nullptr;
+    }
+    ArkUI_SwiperIndicator* indicator = new ArkUI_SwiperIndicator;
+    indicator->type = indicatorType;
+    indicator->dimLeft = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimRight = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimTop = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimBottom = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->ignoreSizeValue = ArkUI_OptionalInt { 0, 0 };
+    if (indicatorType == ARKUI_SWIPER_INDICATOR_TYPE_DOT) {
+        indicator->itemWidth = ArkUI_OptionalFloat { 0, 0.0f };
+        indicator->itemHeight = ArkUI_OptionalFloat { 0, 0.0f };
+        indicator->selectedItemWidth = ArkUI_OptionalFloat { 0, 0.0f };
+        indicator->selectedItemHeight = ArkUI_OptionalFloat { 0, 0.0f };
+        indicator->maskValue = ArkUI_OptionalInt { 0, 0 };
+        indicator->colorValue = ArkUI_OptionalUint { 0, 0xFF000000 };
+        indicator->selectedColorValue = ArkUI_OptionalUint { 0, 0xFF000000 };
+        indicator->maxDisplayCount = ArkUI_OptionalInt { 0, 0 };
+        indicator->dimSpace = ArkUI_OptionalFloat { 0, 8.0f };
+    } else {
+        return nullptr;
+    }
+    return indicator;
+}
+
+void OH_ArkUI_SwiperIndicator_Dispose(ArkUI_SwiperIndicator* indicator)
+{
+    delete indicator;
+}
+
+void OH_ArkUI_SwiperIndicator_SetStartPosition(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimLeft.isSet = 1;
+    indicator->dimLeft.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetStartPosition(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimLeft.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetTopPosition(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimTop.isSet = 1;
+    indicator->dimTop.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetTopPosition(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimTop.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetEndPosition(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimRight.isSet = 1;
+    indicator->dimRight.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetEndPosition(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimRight.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetBottomPosition(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimBottom.isSet = 1;
+    indicator->dimBottom.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetBottomPosition(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimBottom.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetItemWidth(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->itemWidth.isSet = 1;
+    indicator->itemWidth.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetItemWidth(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->itemWidth.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetItemHeight(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->itemHeight.isSet = 1;
+    indicator->itemHeight.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetItemHeight(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->itemHeight.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetSelectedItemWidth(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedItemWidth.isSet = 1;
+    indicator->selectedItemWidth.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetSelectedItemWidth(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->selectedItemWidth.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetSelectedItemHeight(ArkUI_SwiperIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedItemHeight.isSet = 1;
+    indicator->selectedItemHeight.value = value;
+}
+
+float OH_ArkUI_SwiperIndicator_GetSelectedItemHeight(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->selectedItemHeight.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetMask(ArkUI_SwiperIndicator* indicator, int32_t mask)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->maskValue.isSet = 1;
+    indicator->maskValue.value = mask;
+}
+
+int32_t OH_ArkUI_SwiperIndicator_GetMask(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->maskValue.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetColor(ArkUI_SwiperIndicator* indicator, uint32_t color)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->colorValue.isSet = 1;
+    indicator->colorValue.value = color;
+}
+
+uint32_t OH_ArkUI_SwiperIndicator_GetColor(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->colorValue.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetSelectedColor(ArkUI_SwiperIndicator* indicator, uint32_t selectedColor)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedColorValue.isSet = 1;
+    indicator->selectedColorValue.value = selectedColor;
+}
+
+uint32_t OH_ArkUI_SwiperIndicator_GetSelectedColor(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->selectedColorValue.value;
+}
+
+
+int32_t OH_ArkUI_SwiperIndicator_SetMaxDisplayCount(ArkUI_SwiperIndicator* indicator, int32_t maxDisplayCount)
+{
+    CHECK_NULL_RETURN(indicator, ARKUI_ERROR_CODE_PARAM_INVALID);
+    if (maxDisplayCount < MAX_DISPLAY_COUNT_MIN || maxDisplayCount > MAX_DISPLAY_COUNT_MAX) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    indicator->maxDisplayCount.isSet = 1;
+    indicator->maxDisplayCount.value = maxDisplayCount;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_SwiperIndicator_GetMaxDisplayCount(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->maxDisplayCount.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetIgnoreSizeOfBottom(ArkUI_SwiperIndicator* indicator, int32_t ignoreSize)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->ignoreSizeValue.isSet = 1;
+    indicator->ignoreSizeValue.value = ignoreSize;
+}
+
+int32_t OH_ArkUI_SwiperIndicator_GetIgnoreSizeOfBottom(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->ignoreSizeValue.value;
+}
+
+void OH_ArkUI_SwiperIndicator_SetSpace(ArkUI_SwiperIndicator* indicator, float space)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimSpace.isSet = 1;
+    indicator->dimSpace.value = space;
+}
+
+float OH_ArkUI_SwiperIndicator_GetSpace(ArkUI_SwiperIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 8.0f);
+    return indicator->dimSpace.value;
+}
+
+ArkUI_SwiperDigitIndicator* OH_ArkUI_SwiperDigitIndicator_Create()
+{
+    ArkUI_SwiperDigitIndicator* indicator = new ArkUI_SwiperDigitIndicator;
+    indicator->type = ARKUI_SWIPER_INDICATOR_TYPE_DIGIT;
+    indicator->dimLeft = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimRight = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimTop = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->dimBottom = ArkUI_OptionalFloat { 0, 0.0f };
+    indicator->fontColor = ArkUI_OptionalUint { 0, 0xFF000000 };
+    indicator->selectedFontColor = ArkUI_OptionalUint { 0, 0xFF000000 };
+    indicator->fontSize = ArkUI_OptionalFloat { 0, 14.0f };
+    indicator->selectedFontSize = ArkUI_OptionalFloat { 0, 14.0f };
+    indicator->fontWeight = ArkUI_OptionalUint { 0, ARKUI_FONT_WEIGHT_NORMAL };
+    indicator->selectedFontWeight = ArkUI_OptionalUint { 0, ARKUI_FONT_WEIGHT_NORMAL };
+    indicator->ignoreSizeValue = ArkUI_OptionalInt {0, 0};
+    return indicator;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_Destroy(ArkUI_SwiperDigitIndicator* indicator)
+{
+    delete indicator;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetStartPosition(ArkUI_SwiperDigitIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimLeft.isSet = 1;
+    indicator->dimLeft.value = value;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetStartPosition(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimLeft.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetTopPosition(ArkUI_SwiperDigitIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimTop.isSet = 1;
+    indicator->dimTop.value = value;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetTopPosition(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimTop.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetEndPosition(ArkUI_SwiperDigitIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimRight.isSet = 1;
+    indicator->dimRight.value = value;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetEndPosition(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimRight.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetBottomPosition(ArkUI_SwiperDigitIndicator* indicator, float value)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->dimBottom.isSet = 1;
+    indicator->dimBottom.value = value;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetBottomPosition(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->dimBottom.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetFontColor(ArkUI_SwiperDigitIndicator* indicator, uint32_t color)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->fontColor.isSet = 1;
+    indicator->fontColor.value = color;
+}
+
+uint32_t OH_ArkUI_SwiperDigitIndicator_GetFontColor(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->fontColor.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetSelectedFontColor(ArkUI_SwiperDigitIndicator* indicator, uint32_t selectedColor)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedFontColor.isSet = 1;
+    indicator->selectedFontColor.value = selectedColor;
+}
+
+uint32_t OH_ArkUI_SwiperDigitIndicator_GetSelectedFontColor(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->selectedFontColor.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetFontSize(ArkUI_SwiperDigitIndicator* indicator, float size)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->fontSize.isSet = 1;
+    indicator->fontSize.value = size;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetFontSize(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->fontSize.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetSelectedFontSize(ArkUI_SwiperDigitIndicator* indicator, float size)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedFontSize.isSet = 1;
+    indicator->selectedFontSize.value = size;
+}
+
+float OH_ArkUI_SwiperDigitIndicator_GetSelectedFontSize(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0.0f);
+    return indicator->selectedFontSize.value;
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetFontWeight(ArkUI_SwiperDigitIndicator* indicator, ArkUI_FontWeight fontWeight)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->fontWeight.isSet = 1;
+    indicator->fontWeight.value = static_cast<uint32_t>(fontWeight);
+}
+
+ArkUI_FontWeight OH_ArkUI_SwiperDigitIndicator_GetFontWeight(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, static_cast<ArkUI_FontWeight>(0));
+    return static_cast<ArkUI_FontWeight>(indicator->fontWeight.value);
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetSelectedFontWeight(
+    ArkUI_SwiperDigitIndicator* indicator, ArkUI_FontWeight selectedFontWeight)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->selectedFontWeight.isSet = 1;
+    indicator->selectedFontWeight.value = static_cast<uint32_t>(selectedFontWeight);
+}
+
+ArkUI_FontWeight OH_ArkUI_SwiperDigitIndicator_GetSelectedFontWeight(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, static_cast<ArkUI_FontWeight>(0));
+    return static_cast<ArkUI_FontWeight>(indicator->selectedFontWeight.value);
+}
+
+void OH_ArkUI_SwiperDigitIndicator_SetIgnoreSizeOfBottom(ArkUI_SwiperDigitIndicator* indicator, int32_t ignoreSize)
+{
+    CHECK_NULL_VOID(indicator);
+    indicator->ignoreSizeValue.isSet = 1;
+    indicator->ignoreSizeValue.value = ignoreSize;
+}
+
+int32_t OH_ArkUI_SwiperDigitIndicator_GetIgnoreSizeOfBottom(ArkUI_SwiperDigitIndicator* indicator)
+{
+    CHECK_NULL_RETURN(indicator, 0);
+    return indicator->ignoreSizeValue.value;
+}
+
+ArkUI_SwiperArrowStyle* OH_ArkUI_SwiperArrowStyle_Create()
+{
+    ArkUI_SwiperArrowStyle* arrowStyle = new ArkUI_SwiperArrowStyle;
+    arrowStyle->showBackground = ArkUI_OptionalInt { 0, 0 };
+    arrowStyle->showSidebarMiddle = ArkUI_OptionalInt { 0, 0 };
+    arrowStyle->backgroundSize = ArkUI_OptionalFloat { 0, DEFAULT_SIZE_24 };
+    arrowStyle->backgroundColor = ArkUI_OptionalUint { 0, 0x00000000 };
+    arrowStyle->arrowSize = ArkUI_OptionalFloat { 0, DEFAULT_SIZE_18 };
+    arrowStyle->arrowColor = ArkUI_OptionalUint { 0, 0x00182431 };
+    return arrowStyle;
+}
+
+void OH_ArkUI_SwiperArrowStyle_Destroy(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    delete arrowStyle;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetShowBackground(ArkUI_SwiperArrowStyle* arrowStyle, int32_t showBackground)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    if (showBackground != 0 && showBackground != 1) {
+        return;
+    }
+    arrowStyle->showBackground.isSet = 1;
+    arrowStyle->showBackground.value = showBackground;
+}
+
+int32_t OH_ArkUI_SwiperArrowStyle_GetShowBackground(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, 0);
+    return arrowStyle->showBackground.value;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetShowSidebarMiddle(ArkUI_SwiperArrowStyle* arrowStyle, int32_t showSidebarMiddle)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    if (showSidebarMiddle != 0 && showSidebarMiddle != 1) {
+        return;
+    }
+    arrowStyle->showSidebarMiddle.isSet = 1;
+    arrowStyle->showSidebarMiddle.value = showSidebarMiddle;
+    if (showSidebarMiddle == 1) {
+        if (!arrowStyle->backgroundSize.isSet) {
+            arrowStyle->backgroundSize.value = DEFAULT_SIZE_32;
+        }
+        if (!arrowStyle->backgroundColor.isSet) {
+            arrowStyle->backgroundColor.value = 0x19182431;
+        }
+        if (!arrowStyle->arrowSize.isSet) {
+            arrowStyle->arrowSize.value = DEFAULT_SIZE_24;
+        }
+    }
+}
+
+int32_t OH_ArkUI_SwiperArrowStyle_GetShowSidebarMiddle(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, 0);
+    return arrowStyle->showSidebarMiddle.value;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetBackgroundSize(ArkUI_SwiperArrowStyle* arrowStyle, float backgroundSize)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    arrowStyle->backgroundSize.isSet = 1;
+    arrowStyle->backgroundSize.value = backgroundSize;
+}
+
+float OH_ArkUI_SwiperArrowStyle_GetBackgroundSize(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, DEFAULT_SIZE_24);
+    if (arrowStyle->showSidebarMiddle.value == 1) {
+        if (!arrowStyle->backgroundSize.isSet) {
+            return DEFAULT_SIZE_32;
+        }
+    }
+    if (!arrowStyle->backgroundSize.isSet) {
+        return DEFAULT_SIZE_24;
+    }
+    return arrowStyle->backgroundSize.value;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetBackgroundColor(ArkUI_SwiperArrowStyle* arrowStyle, uint32_t backgroundColor)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    arrowStyle->backgroundColor.isSet = 1;
+    arrowStyle->backgroundColor.value = backgroundColor;
+}
+
+uint32_t OH_ArkUI_SwiperArrowStyle_GetBackgroundColor(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, 0x00000000);
+    if (arrowStyle->showSidebarMiddle.value == 1) {
+        if (!arrowStyle->backgroundColor.isSet) {
+            return 0x19182431;
+        }
+    }
+    if (!arrowStyle->backgroundColor.isSet) {
+        return 0x00000000;
+    }
+    return arrowStyle->backgroundColor.value;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetArrowSize(ArkUI_SwiperArrowStyle* arrowStyle, float arrowSize)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    if (arrowStyle->showBackground.value == 1) {
+        arrowSize = arrowStyle->backgroundSize.value * ARROW_SIZE_COEFFICIENT;
+    }
+    arrowStyle->arrowSize.isSet = 1;
+    arrowStyle->arrowSize.value = arrowSize;
+}
+
+float OH_ArkUI_SwiperArrowStyle_GetArrowSize(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, DEFAULT_SIZE_18);
+    if (arrowStyle->showBackground.value == 1) {
+        return arrowStyle->backgroundSize.value * ARROW_SIZE_COEFFICIENT;
+    }
+    if (arrowStyle->showSidebarMiddle.value == 1) {
+        if (!arrowStyle->arrowSize.isSet) {
+            return DEFAULT_SIZE_24;
+        }
+    }
+    if (!arrowStyle->arrowSize.isSet) {
+        return DEFAULT_SIZE_18;
+    }
+    return arrowStyle->arrowSize.value;
+}
+
+void OH_ArkUI_SwiperArrowStyle_SetArrowColor(ArkUI_SwiperArrowStyle* arrowStyle, uint32_t arrowColor)
+{
+    CHECK_NULL_VOID(arrowStyle);
+    arrowStyle->arrowColor.isSet = 1;
+    arrowStyle->arrowColor.value = arrowColor;
+}
+
+uint32_t OH_ArkUI_SwiperArrowStyle_GetArrowColor(ArkUI_SwiperArrowStyle* arrowStyle)
+{
+    CHECK_NULL_RETURN(arrowStyle, 0x00182431);
+    return arrowStyle->arrowColor.value;
+}
+
+ArkUI_StyledString* OH_ArkUI_StyledString_Create(
+    OH_Drawing_TypographyStyle* typoStyle, OH_Drawing_FontCollection* collection)
+{
+    ArkUI_StyledString* storage = new ArkUI_StyledString;
+    storage->builder = OH_Drawing_CreateTypographyHandler(typoStyle, collection);
+    OH_Drawing_TypographyStyle* typographyStyle = OH_Drawing_CreateTypographyStyle();
+    storage->paragraphStyle = typographyStyle;
+    return storage;
+}
+
+void OH_ArkUI_StyledString_Destroy(ArkUI_StyledString* storage)
+{
+    OH_Drawing_DestroyTypographyHandler(reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder));
+    for (auto item : storage->items) {
+        if (item->placeholder) {
+            delete reinterpret_cast<OH_Drawing_PlaceholderSpan*>(item->placeholder);
+            item->placeholder = nullptr;
+        }
+        delete item;
+    }
+    while (!storage->styles.empty()) {
+        auto style = reinterpret_cast<OH_Drawing_TextStyle*>(storage->styles.top());
+        OH_Drawing_DestroyTextStyle(style);
+        storage->styles.pop();
+    }
+    while (!storage->poppedStyles.empty()) {
+        if (storage->poppedStyles.top()) {
+            auto style = reinterpret_cast<OH_Drawing_TextStyle*>(storage->poppedStyles.top());
+            OH_Drawing_DestroyTextStyle(style);
+            storage->poppedStyles.pop();
+        }
+    }
+    storage->styles = std::stack<void*>();
+    storage->items.clear();
+    OH_Drawing_TypographyStyle* paragraphStyle =
+        reinterpret_cast<OH_Drawing_TypographyStyle*>(storage->paragraphStyle);
+    OH_Drawing_DestroyTypographyStyle(paragraphStyle);
+    delete storage;
+}
+
+void OH_ArkUI_StyledString_PushTextStyle(ArkUI_StyledString* storage, OH_Drawing_TextStyle* style)
+{
+    OH_Drawing_TypographyHandlerPushTextStyle(reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder), style);
+    OH_Drawing_TextStyle* textStyle = OH_Drawing_CreateTextStyle();
+    // copy text style
+    if (style) {
+        OH_Drawing_SetTextStyleColor(textStyle, OH_Drawing_TextStyleGetColor(style));
+        OH_Drawing_SetTextStyleFontSize(textStyle, OH_Drawing_TextStyleGetFontSize(style));
+        OH_Drawing_SetTextStyleFontWeight(textStyle, OH_Drawing_TextStyleGetFontWeight(style));
+        OH_Drawing_SetTextStyleBaseLine(textStyle, OH_Drawing_TextStyleGetBaseline(style));
+        OH_Drawing_SetTextStyleFontHeight(textStyle, OH_Drawing_TextStyleGetFontHeight(style));
+        OH_Drawing_SetTextStyleFontStyle(textStyle, OH_Drawing_TextStyleGetFontStyle(style));
+    }
+    storage->styles.push(textStyle);
+}
+
+void OH_ArkUI_StyledString_AddText(ArkUI_StyledString* storage, const char* content)
+{
+    OH_Drawing_TypographyHandlerAddText(reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder), content);
+
+    ArkUI_SpanItem* spanItem = new ArkUI_SpanItem;
+    spanItem->content = content;
+    if (storage->styles.empty()) {
+        spanItem->textStyle = nullptr;
+    } else {
+        spanItem->textStyle = storage->styles.top();
+    }
+    storage->items.emplace_back(spanItem);
+}
+
+void OH_ArkUI_StyledString_PopTextStyle(ArkUI_StyledString* storage)
+{
+    OH_Drawing_TypographyHandlerPopTextStyle(reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder));
+    if (storage->styles.empty()) {
+        return;
+    }
+    storage->poppedStyles.push(storage->styles.top());
+    storage->styles.pop();
+}
+
+OH_Drawing_Typography* OH_ArkUI_StyledString_CreateTypography(ArkUI_StyledString* storage)
+{
+    OH_Drawing_Typography* paragraph =
+        OH_Drawing_CreateTypography(reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder));
+    storage->paragraph = paragraph;
+    return reinterpret_cast<OH_Drawing_Typography*>(paragraph);
+}
+
+void OH_ArkUI_StyledString_AddPlaceholder(ArkUI_StyledString* storage, OH_Drawing_PlaceholderSpan* placeholder)
+{
+    OH_Drawing_TypographyHandlerAddPlaceholder(
+        reinterpret_cast<OH_Drawing_TypographyCreate*>(storage->builder), placeholder);
+    ArkUI_SpanItem* spanItem = new ArkUI_SpanItem;
+    if (placeholder) {
+        spanItem->placeholder = new OH_Drawing_PlaceholderSpan {
+            placeholder->width, placeholder->height,
+            placeholder->alignment, placeholder->baseline,
+            placeholder->baselineOffset };
+    } else {
+        spanItem->placeholder = new OH_Drawing_PlaceholderSpan();
+    }
+    storage->items.emplace_back(spanItem);
+}
+
+ArkUI_AccessibilityState* OH_ArkUI_AccessibilityState_Create()
+{
+    ArkUI_AccessibilityState* state = new ArkUI_AccessibilityState;
+    state->isDisabled = ArkUI_OptionalInt { 0, 0 };
+    state->isSelected = ArkUI_OptionalInt { 0, 0 };
+    state->checkedType = ArkUI_OptionalInt { 0, 0 };
+    return state;
+}
+
+void OH_ArkUI_AccessibilityState_Dispose(ArkUI_AccessibilityState* state)
+{
+    delete state;
+}
+
+void OH_ArkUI_AccessibilityState_SetDisabled(ArkUI_AccessibilityState* state, int32_t isDisabled)
+{
+    CHECK_NULL_VOID(state);
+    state->isDisabled.isSet = 1;
+    state->isDisabled.value = isDisabled;
+}
+
+int32_t OH_ArkUI_AccessibilityState_IsDisabled(ArkUI_AccessibilityState* state)
+{
+    CHECK_NULL_RETURN(state, 0);
+    return state->isDisabled.value;
+}
+
+void OH_ArkUI_AccessibilityState_SetSelected(ArkUI_AccessibilityState* state, int32_t isSelected)
+{
+    CHECK_NULL_VOID(state);
+    state->isSelected.isSet = 1;
+    state->isSelected.value = isSelected;
+}
+
+int32_t OH_ArkUI_AccessibilityState_IsSelected(ArkUI_AccessibilityState* state)
+{
+    CHECK_NULL_RETURN(state, 0);
+    return state->isSelected.value;
+}
+
+void OH_ArkUI_AccessibilityState_SetCheckedState(ArkUI_AccessibilityState* state, int32_t checkedState)
+{
+    CHECK_NULL_VOID(state);
+    state->checkedType.isSet = 1;
+    state->checkedType.value = checkedState;
+}
+
+int32_t OH_ArkUI_AccessibilityState_GetCheckedState(ArkUI_AccessibilityState* state)
+{
+    CHECK_NULL_RETURN(state, 0);
+    return state->checkedType.value;
+}
+
+ArkUI_AccessibilityValue* OH_ArkUI_AccessibilityValue_Create()
+{
+    ArkUI_AccessibilityValue* value = new ArkUI_AccessibilityValue;
+    value->min = ArkUI_OptionalInt { 0, -1 };
+    value->max = ArkUI_OptionalInt { 0, -1 };
+    value->current = ArkUI_OptionalInt { 0, -1 };
+    value->rangeMin = ArkUI_OptionalInt { 0, -1 };
+    value->rangeMax = ArkUI_OptionalInt { 0, -1 };
+    value->rangeCurrent = ArkUI_OptionalInt { 0, -1 };
+    value->text = ArkUI_OptionalCharPtr { 0, "" };
+    return value;
+}
+
+void OH_ArkUI_AccessibilityValue_Dispose(ArkUI_AccessibilityValue* value)
+{
+    delete value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetMin(ArkUI_AccessibilityValue* value, int32_t min)
+{
+    CHECK_NULL_VOID(value);
+    value->min.isSet = 1;
+    value->min.value = min;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetMin(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->min.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetMax(ArkUI_AccessibilityValue* value, int32_t max)
+{
+    CHECK_NULL_VOID(value);
+    value->max.isSet = 1;
+    value->max.value = max;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetMax(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->max.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetCurrent(ArkUI_AccessibilityValue* value, int32_t current)
+{
+    CHECK_NULL_VOID(value);
+    value->current.isSet = 1;
+    value->current.value = current;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetCurrent(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->current.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetRangeMin(ArkUI_AccessibilityValue* value, int32_t rangeMin)
+{
+    CHECK_NULL_VOID(value);
+    value->rangeMin.isSet = 1;
+    value->rangeMin.value = rangeMin;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetRangeMin(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->rangeMin.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetRangeMax(ArkUI_AccessibilityValue* value, int32_t rangeMax)
+{
+    CHECK_NULL_VOID(value);
+    value->rangeMax.isSet = 1;
+    value->rangeMax.value = rangeMax;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetRangeMax(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->rangeMax.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetRangeCurrent(ArkUI_AccessibilityValue* value, int32_t rangeCurrent)
+{
+    CHECK_NULL_VOID(value);
+    value->rangeCurrent.isSet = 1;
+    value->rangeCurrent.value = rangeCurrent;
+}
+
+int32_t OH_ArkUI_AccessibilityValue_GetRangeCurrent(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, -1);
+    return value->rangeCurrent.value;
+}
+
+void OH_ArkUI_AccessibilityValue_SetText(ArkUI_AccessibilityValue* value, const char* text)
+{
+    CHECK_NULL_VOID(value);
+    value->text.isSet = 1;
+    value->text.value = text;
+}
+
+const char* OH_ArkUI_AccessibilityValue_GetText(ArkUI_AccessibilityValue* value)
+{
+    CHECK_NULL_RETURN(value, "");
+    return value->text.value;
+}
+
+ArkUI_VisibleAreaEventOptions* OH_ArkUI_VisibleAreaEventOptions_Create()
+{
+    ArkUI_VisibleAreaEventOptions* options = new ArkUI_VisibleAreaEventOptions;
+    options->expectedUpdateInterval = EXPECTED_UPDATE_INTERVAL_VALUE;
+    return options;
+}
+
+void OH_ArkUI_VisibleAreaEventOptions_Dispose(ArkUI_VisibleAreaEventOptions* option)
+{
+    if (!option) {
+        return;
+    }
+    delete option;
+    option = nullptr;
+}
+
+int32_t OH_ArkUI_VisibleAreaEventOptions_SetRatios(ArkUI_VisibleAreaEventOptions* option, float* value, int32_t size)
+{
+    if (!option) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    option->ratios.clear();
+    for (int32_t i = 0; i < size; i++) {
+        auto ratio = value[i];
+        ratio = std::clamp(ratio, DEFAULT_VISIBLE_RATIO_MIN, DEFAULT_VISIBLE_RATIO_MAX);
+        option->ratios.push_back(ratio);
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_VisibleAreaEventOptions_SetExpectedUpdateInterval(ArkUI_VisibleAreaEventOptions* option, int32_t value)
+{
+    if (!option) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    if (value < 0) {
+        value = EXPECTED_UPDATE_INTERVAL_VALUE;
+    }
+    if (value >= 0 && value < EXPECTED_UPDATE_INTERVAL_MIN_VALUE) {
+        value = EXPECTED_UPDATE_INTERVAL_MIN_VALUE;
+    }
+    option->expectedUpdateInterval = value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_VisibleAreaEventOptions_SetMeasureFromViewport(
+    ArkUI_VisibleAreaEventOptions* option, bool measureFromViewport)
+{
+    if (!option) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    option->measureFromViewport = measureFromViewport;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+bool OH_ArkUI_VisibleAreaEventOptions_GetMeasureFromViewport(ArkUI_VisibleAreaEventOptions* option)
+{
+    if (!option) {
+        return false;
+    }
+    return option->measureFromViewport;
+}
+
+int32_t OH_ArkUI_VisibleAreaEventOptions_GetRatios(ArkUI_VisibleAreaEventOptions* option, float* value, int32_t* size)
+{
+    if (!option || !value || !size) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    int32_t ratiosSize = static_cast<int32_t>(option->ratios.size());
+    if (*size < ratiosSize) {
+        *size = ratiosSize;
+        return ARKUI_ERROR_CODE_BUFFER_SIZE_ERROR;
+    }
+    int32_t index = 0;
+    for (const auto& element : option->ratios) {
+        value[index] = element;
+        index++;
+    }
+    *size = static_cast<int32_t>(option->ratios.size());
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+int32_t OH_ArkUI_VisibleAreaEventOptions_GetExpectedUpdateInterval(ArkUI_VisibleAreaEventOptions* option)
+{
+    if (!option) {
+        return -1;
+    }
+    return option->expectedUpdateInterval;
+}
+
+ArkUI_PositionEdges* OH_ArkUI_PositionEdges_Create()
+{
+    ArkUI_PositionEdges* edges = new ArkUI_PositionEdges{ { 0, 0.0f }, { 0, 0.0f }, { 0, 0.0f }, { 0, 0.0f } };
+    return edges;
+}
+
+ArkUI_PositionEdges* OH_ArkUI_PositionEdges_Copy(const ArkUI_PositionEdges* edges)
+{
+    CHECK_NULL_RETURN(edges, nullptr);
+    ArkUI_PositionEdges* positionEdges = new ArkUI_PositionEdges { { 0, 0.0f }, { 0, 0.0f }, { 0, 0.0f }, { 0, 0.0f } };
+    positionEdges->top = edges->top;
+    positionEdges->left = edges->left;
+    positionEdges->bottom = edges->bottom;
+    positionEdges->right = edges->right;
+    return positionEdges;
+}
+
+void OH_ArkUI_PositionEdges_Dispose(ArkUI_PositionEdges* edges)
+{
+    delete edges;
+    edges = nullptr;
+}
+
+void OH_ArkUI_PositionEdges_SetTop(ArkUI_PositionEdges* edges, float value)
+{
+    CHECK_NULL_VOID(edges);
+    edges->top = { 1, value };
+}
+
+int32_t OH_ArkUI_PositionEdges_GetTop(ArkUI_PositionEdges* edges, float* value)
+{
+    if (!edges || !edges->top.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = edges->top.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PositionEdges_SetLeft(ArkUI_PositionEdges* edges, float value)
+{
+    CHECK_NULL_VOID(edges);
+    edges->left = { 1, value };
+}
+
+int32_t OH_ArkUI_PositionEdges_GetLeft(ArkUI_PositionEdges* edges, float* value)
+{
+    if (!edges || !edges->left.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = edges->left.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PositionEdges_SetBottom(ArkUI_PositionEdges* edges, float value)
+{
+    CHECK_NULL_VOID(edges);
+    edges->bottom = { 1, value };
+}
+
+int32_t OH_ArkUI_PositionEdges_GetBottom(ArkUI_PositionEdges* edges, float* value)
+{
+    if (!edges || !edges->bottom.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = edges->bottom.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PositionEdges_SetRight(ArkUI_PositionEdges* edges, float value)
+{
+    CHECK_NULL_VOID(edges);
+    edges->right = { 1, value };
+}
+
+int32_t OH_ArkUI_PositionEdges_GetRight(ArkUI_PositionEdges* edges, float* value)
+{
+    if (!edges || !edges->right.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = edges->right.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_PixelRoundPolicy* OH_ArkUI_PixelRoundPolicy_Create()
+{
+    ArkUI_PixelRoundPolicy* policy = new ArkUI_PixelRoundPolicy { { 0, ARKUI_PIXELROUNDCALCPOLICY_NOFORCEROUND },
+        { 0, ARKUI_PIXELROUNDCALCPOLICY_NOFORCEROUND }, { 0, ARKUI_PIXELROUNDCALCPOLICY_NOFORCEROUND },
+        { 0, ARKUI_PIXELROUNDCALCPOLICY_NOFORCEROUND } };
+    return policy;
+}
+
+void OH_ArkUI_PixelRoundPolicy_Dispose(ArkUI_PixelRoundPolicy* policy)
+{
+    delete policy;
+    policy = nullptr;
+}
+
+void OH_ArkUI_PixelRoundPolicy_SetTop(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy value)
+{
+    CHECK_NULL_VOID(policy);
+    policy->top = { 1, value };
+}
+
+int32_t OH_ArkUI_PixelRoundPolicy_GetTop(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy* value)
+{
+    if (!policy || !policy->top.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = policy->top.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PixelRoundPolicy_SetStart(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy value)
+{
+    CHECK_NULL_VOID(policy);
+    policy->start = { 1, value };
+}
+
+int32_t OH_ArkUI_PixelRoundPolicy_GetStart(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy* value)
+{
+    if (!policy || !policy->start.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = policy->start.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PixelRoundPolicy_SetBottom(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy value)
+{
+    CHECK_NULL_VOID(policy);
+    policy->bottom = { 1, value };
+}
+
+int32_t OH_ArkUI_PixelRoundPolicy_GetBottom(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy* value)
+{
+    if (!policy || !policy->bottom.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = policy->bottom.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+void OH_ArkUI_PixelRoundPolicy_SetEnd(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy value)
+{
+    CHECK_NULL_VOID(policy);
+    policy->end = { 1, value };
+}
+
+int32_t OH_ArkUI_PixelRoundPolicy_GetEnd(ArkUI_PixelRoundPolicy* policy, ArkUI_PixelRoundCalcPolicy* value)
+{
+    if (!policy || !policy->end.isSet) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    *value = policy->end.value;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_SelectionOptions* OH_ArkUI_SelectionOptions_Create()
+{
+    ArkUI_SelectionOptions* options = new ArkUI_SelectionOptions;
+    options->menuPolicy = ArkUI_MenuPolicy::ARKUI_MENU_POLICY_DEFAULT;
+    return options;
+}
+
+void OH_ArkUI_SelectionOptions_Dispose(ArkUI_SelectionOptions* options)
+{
+    delete options;
+}
+
+void OH_ArkUI_SelectionOptions_SetMenuPolicy(ArkUI_SelectionOptions* options, ArkUI_MenuPolicy menuPolicy)
+{
+    CHECK_NULL_VOID(options);
+    options->menuPolicy = menuPolicy;
+}
+
+ArkUI_MenuPolicy OH_ArkUI_SelectionOptions_GetMenuPolicy(ArkUI_SelectionOptions* options)
+{
+    CHECK_NULL_RETURN(options, ArkUI_MenuPolicy::ARKUI_MENU_POLICY_DEFAULT);
+    return options->menuPolicy;
+}
+
+ArkUI_ShowCounterConfig* OH_ArkUI_ShowCounterConfig_Create()
+{
+    ArkUI_ShowCounterConfig* config = new ArkUI_ShowCounterConfig { { 0, 0.0f }, { 0, 0.0f } };
+    return config;
+}
+
+void OH_ArkUI_ShowCounterConfig_Dispose(ArkUI_ShowCounterConfig* config)
+{
+    delete config;
+    config = nullptr;
+}
+
+void OH_ArkUI_ShowCounterConfig_SetCounterTextColor(ArkUI_ShowCounterConfig* config, uint32_t color)
+{
+    CHECK_NULL_VOID(config);
+    config->counterTextColor = { 1, color };
+}
+
+void OH_ArkUI_ShowCounterConfig_SetCounterTextOverflowColor(ArkUI_ShowCounterConfig* config, uint32_t color)
+{
+    CHECK_NULL_VOID(config);
+    config->counterTextOverflowColor = { 1, color };
+}
+
+uint32_t OH_ArkUI_ShowCounterConfig_GetCounterTextColor(ArkUI_ShowCounterConfig* config)
+{
+    CHECK_NULL_RETURN(config, 0);
+    return config->counterTextColor.value;
+}
+
+uint32_t OH_ArkUI_ShowCounterConfig_GetCounterTextOverflowColor(ArkUI_ShowCounterConfig* config)
+{
+    CHECK_NULL_RETURN(config, 0);
+    return config->counterTextOverflowColor.value;
+}
+
+ArkUI_TextContentBaseController* OH_ArkUI_TextContentBaseController_Create()
+{
+    auto controller = new ArkUI_TextContentBaseController{};
+    return controller;
+}
+
+void OH_ArkUI_TextContentBaseController_Dispose(ArkUI_TextContentBaseController* controller)
+{
+    delete controller;
+    controller = nullptr;
+}
+
+void OH_ArkUI_TextContentBaseController_DeleteBackward(ArkUI_TextContentBaseController* controller)
+{
+    CHECK_NULL_VOID(controller);
+    auto fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    switch (controller->textFieldType) {
+        case NODE_TEXT_INPUT_TEXT_CONTENT_CONTROLLER_BASE:
+            fullImpl->getNodeModifiers()->getTextInputModifier()
+                ->textInputDeleteBackward(controller->node->uiNodeHandle);
+            break;
+        case NODE_TEXT_AREA_TEXT_CONTENT_CONTROLLER_BASE:
+            fullImpl->getNodeModifiers()->getTextAreaModifier()
+                ->textAreaDeleteBackward(controller->node->uiNodeHandle);
+            break;
+        default:
+            return;
+    }
+}
+
+void OH_ArkUI_TextLayoutManager_Dispose(ArkUI_TextLayoutManager* layoutManager)
+{
+    delete layoutManager;
+    layoutManager = nullptr;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetLineCount(ArkUI_TextLayoutManager* layoutManager, int32_t* outLineCount)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        *outLineCount = fullImpl->getNodeModifiers()->getRichEditorModifier()->
+            getRichEditorLineCount(node->uiNodeHandle);
+    } else {
+        *outLineCount = fullImpl->getNodeModifiers()->getTextModifier()->getLineCount(node->uiNodeHandle);
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetRectsForRange(ArkUI_TextLayoutManager* layoutManager,
+    int32_t start, int32_t end, OH_Drawing_RectWidthStyle widthStyle, OH_Drawing_RectHeightStyle heightStyle,
+    OH_Drawing_TextBox** outTextBoxes)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    if (start < 0 || end < 0 || start > end) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        *outTextBoxes = reinterpret_cast<OH_Drawing_TextBox*>(
+            fullImpl->getNodeModifiers()->getRichEditorModifier()->getRichEditorRectsForRange(node->uiNodeHandle,
+                start, end, static_cast<ArkUI_Int32>(heightStyle), static_cast<ArkUI_Int32>(widthStyle)));
+    } else {
+        *outTextBoxes = reinterpret_cast<OH_Drawing_TextBox*>(
+            fullImpl->getNodeModifiers()->getTextModifier()->getRectsForRange(node->uiNodeHandle, start, end,
+                static_cast<ArkUI_Int32>(heightStyle), static_cast<ArkUI_Int32>(widthStyle)));
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetGlyphPositionAtCoordinate(
+    ArkUI_TextLayoutManager* layoutManager, double dx, double dy, OH_Drawing_PositionAndAffinity** outPos)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        *outPos = reinterpret_cast<OH_Drawing_PositionAndAffinity*>(fullImpl->getNodeModifiers()->
+            getRichEditorModifier()->getRichEditorGlyphPositionAtCoordinate(node->uiNodeHandle, dx, dy));
+    } else {
+        *outPos = reinterpret_cast<OH_Drawing_PositionAndAffinity*>(
+            fullImpl->getNodeModifiers()->getTextModifier()->getGlyphPositionAtCoordinate(node->uiNodeHandle, dx, dy));
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetLineMetrics(ArkUI_TextLayoutManager* layoutManager,
+    int32_t lineNumber, OH_Drawing_LineMetrics* outMetrics)
+{
+    CHECK_NULL_RETURN(layoutManager && outMetrics, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    int32_t lineCount = 0;
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        lineCount = fullImpl->getNodeModifiers()->getRichEditorModifier()->getRichEditorLineCount(node->uiNodeHandle);
+    } else {
+        lineCount = fullImpl->getNodeModifiers()->getTextModifier()->getLineCount(node->uiNodeHandle);
+    }
+    if (lineNumber < 0 || lineNumber >= lineCount) {
+        return ARKUI_ERROR_CODE_PARAM_INVALID;
+    }
+    ArkUITextLineMetrics lineMetrics;
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        lineMetrics = fullImpl->getNodeModifiers()->getRichEditorModifier()->
+            getRichEditorLineMetrics(node->uiNodeHandle, lineNumber);
+    } else {
+        lineMetrics = fullImpl->getNodeModifiers()->getTextModifier()->getLineMetrics(node->uiNodeHandle, lineNumber);
+    }
+    outMetrics->ascender = lineMetrics.ascender;
+    outMetrics->descender = lineMetrics.descender;
+    outMetrics->capHeight = lineMetrics.capHeight;
+    outMetrics->xHeight = lineMetrics.xHeight;
+    outMetrics->width = lineMetrics.width;
+    outMetrics->height = lineMetrics.height;
+    outMetrics->x = lineMetrics.x;
+    outMetrics->y = lineMetrics.y;
+    outMetrics->startIndex = lineMetrics.startIndex;
+    outMetrics->endIndex = lineMetrics.endIndex;
+    ArkUIFontMetrics firstCharMetrics = lineMetrics.firstCharMetrics;
+    outMetrics->firstCharMetrics.flags = firstCharMetrics.fFlags;
+    outMetrics->firstCharMetrics.top = firstCharMetrics.fTop;
+    outMetrics->firstCharMetrics.ascent = firstCharMetrics.fAscent;
+    outMetrics->firstCharMetrics.descent = firstCharMetrics.fDescent;
+    outMetrics->firstCharMetrics.bottom = firstCharMetrics.fBottom;
+    outMetrics->firstCharMetrics.leading = firstCharMetrics.fLeading;
+    outMetrics->firstCharMetrics.avgCharWidth = firstCharMetrics.fAvgCharWidth;
+    outMetrics->firstCharMetrics.maxCharWidth = firstCharMetrics.fMaxCharWidth;
+    outMetrics->firstCharMetrics.xMin = firstCharMetrics.fXMin;
+    outMetrics->firstCharMetrics.xMax = firstCharMetrics.fXMax;
+    outMetrics->firstCharMetrics.xHeight = firstCharMetrics.fXHeight;
+    outMetrics->firstCharMetrics.capHeight = firstCharMetrics.fCapHeight;
+    outMetrics->firstCharMetrics.underlineThickness = firstCharMetrics.fUnderlineThickness;
+    outMetrics->firstCharMetrics.underlinePosition = firstCharMetrics.fUnderlinePosition;
+    outMetrics->firstCharMetrics.strikeoutThickness = firstCharMetrics.fStrikeoutThickness;
+    outMetrics->firstCharMetrics.strikeoutPosition = firstCharMetrics.fStrikeoutPosition;
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+OH_ArkUI_DecorationStyleOptions* OH_ArkUI_DecorationStyleOptions_Create()
+{
+    OH_ArkUI_DecorationStyleOptions* options = new OH_ArkUI_DecorationStyleOptions();
+    options->type = ArkUI_TextDecorationType::ARKUI_TEXT_DECORATION_TYPE_NONE;
+    options->color = 0;
+    options->style = ArkUI_TextDecorationStyle::ARKUI_TEXT_DECORATION_STYLE_SOLID;
+    options->thicknessScale = 1.0f;
+    return options;
+}
+ 
+void OH_ArkUI_DecorationStyleOptions_Destroy(OH_ArkUI_DecorationStyleOptions* options)
+{
+    CHECK_NULL_VOID(options);
+    delete options;
+    options = nullptr;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_SetTextDecorationType(
+    OH_ArkUI_DecorationStyleOptions* options, ArkUI_TextDecorationType type)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->type = type;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_GetTextDecorationType(OH_ArkUI_DecorationStyleOptions* options,
+    ArkUI_TextDecorationType* type)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(type, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *type = options->type;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_SetColor(
+    OH_ArkUI_DecorationStyleOptions* options, uint32_t color)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->color = color;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_GetColor(OH_ArkUI_DecorationStyleOptions* options, uint32_t* color)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(color, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *color = options->color;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_SetTextDecorationStyle(
+    OH_ArkUI_DecorationStyleOptions* options, ArkUI_TextDecorationStyle style)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->style = style;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_GetTextDecorationStyle(OH_ArkUI_DecorationStyleOptions* options,
+    ArkUI_TextDecorationStyle* style)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(style, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *style = options->style;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_SetThicknessScale(
+    OH_ArkUI_DecorationStyleOptions* options, float thicknessScale)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->thicknessScale = thicknessScale;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_DecorationStyleOptions_GetThicknessScale(OH_ArkUI_DecorationStyleOptions* options,
+    float* thicknessScale)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(thicknessScale, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *thicknessScale = options->thicknessScale;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+OH_ArkUI_TextDataDetectorConfig* OH_ArkUI_TextDataDetectorConfig_Create()
+{
+    OH_ArkUI_TextDataDetectorConfig* config = new OH_ArkUI_TextDataDetectorConfig();
+    config->color = 0xFF000000;
+    return config;
+}
+ 
+void OH_ArkUI_TextDataDetectorConfig_Destroy(OH_ArkUI_TextDataDetectorConfig* config)
+{
+    if (!config) {
+        return;
+    }
+    delete config;
+    config = nullptr;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_SetTypes(
+    OH_ArkUI_TextDataDetectorConfig* config, const ArkUI_TextDataDetectorType* types, int32_t length)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(types, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    
+    for (int32_t i = 0; i < length; i++) {
+        config->types.push_back(types[i]);
+    }
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_GetTypes(OH_ArkUI_TextDataDetectorConfig* config,
+    ArkUI_TextDataDetectorType* buffer, int32_t bufferSize, int32_t* writeLength)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(buffer, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(writeLength, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    int32_t typeSize = static_cast<int32_t>(config->types.size());
+    if (bufferSize < typeSize) {
+        return ArkUI_ErrorCode::ARKUI_ERROR_CODE_BUFFER_SIZE_ERROR;
+    }
+    std::copy(config->types.begin(), config->types.end(), buffer);
+    *writeLength = typeSize;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_RegisterOnDetectResultUpdateCallback(
+    OH_ArkUI_TextDataDetectorConfig* config, void* userData,
+    void (*callback)(const char* result, int32_t length, void* userData))
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(callback, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    config->onDetectResultUpdate = reinterpret_cast<void*>(callback);
+    config->onDetectResultUpdateUserData = userData;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_SetColor(
+    OH_ArkUI_TextDataDetectorConfig* config, uint32_t color)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    config->color = color;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_GetColor(OH_ArkUI_TextDataDetectorConfig* config, uint32_t* color)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(color, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *color = config->color;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_SetDecorationStyleOptions(
+    OH_ArkUI_TextDataDetectorConfig* config, OH_ArkUI_DecorationStyleOptions* decoration)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    OH_ArkUI_DecorationStyleOptions newDecoration;
+    OH_ArkUI_DecorationStyleOptions_SetTextDecorationType(&newDecoration, decoration->type);
+    OH_ArkUI_DecorationStyleOptions_SetColor(&newDecoration, decoration->color);
+    OH_ArkUI_DecorationStyleOptions_SetTextDecorationStyle(&newDecoration, decoration->style);
+    OH_ArkUI_DecorationStyleOptions_SetThicknessScale(&newDecoration, decoration->thicknessScale);
+    config->decoration = newDecoration;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_GetDecorationStyleOptions(
+    OH_ArkUI_TextDataDetectorConfig* config, OH_ArkUI_DecorationStyleOptions* decoration)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(decoration, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *decoration = config->decoration;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_SetEnablePreviewMenu(
+    OH_ArkUI_TextDataDetectorConfig* dataDetectorConfig, bool enablePreviewMenu)
+{
+    CHECK_NULL_RETURN(dataDetectorConfig, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    dataDetectorConfig->enablePreviewMenu = enablePreviewMenu;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextDataDetectorConfig_GetEnablePreviewMenu(
+    OH_ArkUI_TextDataDetectorConfig* config, bool* enablePreviewMenu)
+{
+    CHECK_NULL_RETURN(config, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(enablePreviewMenu, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *enablePreviewMenu = config->enablePreviewMenu;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+OH_ArkUI_TextEditorSelectionMenuOptions* OH_ArkUI_TextEditorSelectionMenuOptions_Create()
+{
+    auto* options = new OH_ArkUI_TextEditorSelectionMenuOptions();
+    options->richEditorSpanType = OH_ArkUI_TextEditorSpanType::OH_ARKUI_TEXT_EDITOR_SPAN_TYPE_TEXT;
+    options->responseType = OH_ArkUI_TextEditorResponseType::OH_ARKUI_TEXT_EDITOR_RESPONSE_TYPE_LONG_PRESS;
+    options->menuType = OH_ArkUI_TextMenuType::OH_ARKUI_TEXT_EDITOR_SELECTION_MENU;
+    options->hapticFeedbackMode = OH_ArkUI_HapticFeedbackMode::OH_ARKUI_HAPTIC_FEEDBACK_MODE_DISABLED;
+    return options;
+}
+ 
+void OH_ArkUI_TextEditorSelectionMenuOptions_Destroy(OH_ArkUI_TextEditorSelectionMenuOptions* options)
+{
+    CHECK_NULL_VOID(options);
+    delete options;
+    options = nullptr;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_SetSpanType(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, OH_ArkUI_TextEditorSpanType textEditorSpanType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->richEditorSpanType = textEditorSpanType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_GetSpanType(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, OH_ArkUI_TextEditorSpanType* textEditorSpanType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(textEditorSpanType, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *textEditorSpanType = options->richEditorSpanType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_SetContentNode(OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    ArkUI_NodeHandle node)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(node, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->contentNode = node;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_GetContentNode(OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    ArkUI_NodeHandle* node)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(node, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *node = options->contentNode;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_SetResponseType(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    OH_ArkUI_TextEditorResponseType  responseType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->responseType = responseType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_GetResponseType(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    OH_ArkUI_TextEditorResponseType * responseType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(responseType, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *responseType = options->responseType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_SetMenuType(OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    OH_ArkUI_TextMenuType  menuType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->menuType = menuType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_GetMenuType(OH_ArkUI_TextEditorSelectionMenuOptions* options,
+    OH_ArkUI_TextMenuType * menuType)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(menuType, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *menuType = options->menuType;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_RegisterOnMenuShowCallback(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, void* userData,
+    void (*callback)(int32_t start, int32_t end, void* userData))
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(callback, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->onMenuShow = reinterpret_cast<void*>(callback);
+    options->onMenuShowUserData = userData;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_RegisterOnMenuHideCallback(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, void* userData,
+    void (*callback)(int32_t start, int32_t end, void* userData))
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(callback, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->onMenuHide = reinterpret_cast<void*>(callback);
+    options->onMenuHideUserData = userData;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_RegisterOnMenuAppearCallback(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, void* userData,
+    void (*callback)(int32_t start, int32_t end, void* userData))
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(callback, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->onMenuAppear = reinterpret_cast<void*>(callback);
+    options->onMenuAppearUserData = userData;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_RegisterOnMenuDisappearCallback(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, void* userData, void (*callback)(void* userData))
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(callback, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->onMenuDisappear = reinterpret_cast<void*>(callback);
+    options->onMenuDisappearUserData = userData;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_SetHapticFeedbackMode(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, OH_ArkUI_HapticFeedbackMode mode)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    options->hapticFeedbackMode = mode;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+ 
+ArkUI_ErrorCode OH_ArkUI_TextEditorSelectionMenuOptions_GetHapticFeedbackMode(
+    OH_ArkUI_TextEditorSelectionMenuOptions* options, OH_ArkUI_HapticFeedbackMode* mode)
+{
+    CHECK_NULL_RETURN(options, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    CHECK_NULL_RETURN(mode, ArkUI_ErrorCode::ARKUI_ERROR_CODE_PARAM_INVALID);
+    *mode = options->hapticFeedbackMode;
+    return ArkUI_ErrorCode::ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetCharacterPositionAtCoordinate(
+    ArkUI_TextLayoutManager* layoutManager, double dx, double dy, OH_Drawing_PositionAndAffinity** outPos)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        *outPos = reinterpret_cast<OH_Drawing_PositionAndAffinity*>(
+            fullImpl->getNodeModifiers()->getRichEditorModifier()->getRichEditorCharacterPositionAtCoordinate(
+                node->uiNodeHandle, dx, dy));
+    } else {
+        *outPos = reinterpret_cast<OH_Drawing_PositionAndAffinity*>(
+            fullImpl->getNodeModifiers()->getTextModifier()->getCharacterPositionAtCoordinate(
+                node->uiNodeHandle, dx, dy));
+    }
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetGlyphRangeForCharacterRange(ArkUI_TextLayoutManager* layoutManager,
+    OH_Drawing_Range* charRange, OH_Drawing_Range** outGlyphRange, OH_Drawing_Range** outActualCharRange)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    int32_t start = static_cast<int32_t>(OH_Drawing_GetStartFromRange(charRange));
+    int32_t end = static_cast<int32_t>(OH_Drawing_GetEndFromRange(charRange));
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    GlyphCharacterRange range;
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        fullImpl->getNodeModifiers()->getRichEditorModifier()->getRichEditorGlyphRangeForCharacterRange(
+            node->uiNodeHandle, start, end, &range);
+    } else {
+        fullImpl->getNodeModifiers()->getTextModifier()->getGlyphRangeForCharacterRange(
+            node->uiNodeHandle, start, end, &range);
+    }
+    ArkUI_Boundary* glyphRange = new (std::nothrow) ArkUI_Boundary(range.glyphStart, range.glyphEnd);
+    *outGlyphRange = reinterpret_cast<OH_Drawing_Range*>(glyphRange);
+    ArkUI_Boundary* actualCharRange = new (std::nothrow) ArkUI_Boundary(range.charStart, range.charEnd);
+    *outActualCharRange = reinterpret_cast<OH_Drawing_Range*>(actualCharRange);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+ArkUI_ErrorCode OH_ArkUI_TextLayoutManager_GetCharacterRangeForGlyphRange(ArkUI_TextLayoutManager* layoutManager,
+    OH_Drawing_Range* glyphRange, OH_Drawing_Range** outCharRange, OH_Drawing_Range** outActualGlyphRange)
+{
+    CHECK_NULL_RETURN(layoutManager, ARKUI_ERROR_CODE_PARAM_INVALID);
+    ArkUI_NodeHandle node = layoutManager->node;
+    CHECK_NULL_RETURN(node, ARKUI_ERROR_CODE_PARAM_INVALID);
+    int32_t start = static_cast<int32_t>(OH_Drawing_GetStartFromRange(glyphRange));
+    int32_t end = static_cast<int32_t>(OH_Drawing_GetEndFromRange(glyphRange));
+    auto* fullImpl = OHOS::Ace::NodeModel::GetFullImpl();
+    GlyphCharacterRange range;
+    if (node->type == ARKUI_NODE_TEXT_EDITOR) {
+        fullImpl->getNodeModifiers()->getRichEditorModifier()->getRichEditorCharacterRangeForGlyphRange(
+            node->uiNodeHandle, start, end, &range);
+    } else {
+        fullImpl->getNodeModifiers()->getTextModifier()->getCharacterRangeForGlyphRange(
+            node->uiNodeHandle, start, end, &range);
+    }
+    ArkUI_Boundary* charRange = new (std::nothrow) ArkUI_Boundary(range.charStart, range.charEnd);
+    *outCharRange = reinterpret_cast<OH_Drawing_Range*>(charRange);
+    ArkUI_Boundary* actualGlyphRange = new (std::nothrow) ArkUI_Boundary(range.glyphStart, range.glyphEnd);
+    *outActualGlyphRange = reinterpret_cast<OH_Drawing_Range*>(actualGlyphRange);
+    return ARKUI_ERROR_CODE_NO_ERROR;
+}
+
+#ifdef __cplusplus
+};
+#endif

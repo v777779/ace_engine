@@ -1,0 +1,145 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/// <reference path="./content.ts" />
+class ComponentContentCommonBase extends Content {
+  // the name of "builderNode_" is used in ace_engine/interfaces/native/node/native_node_napi.cpp.
+  protected builderNode_: BuilderNode | ReactiveBuilderNode;
+  private attachNodeRef_: NativeStrongRef;
+  private parentWeak_: WeakRef<FrameNode> | undefined;
+  private _isDisposed: boolean;
+  protected instanceId_: number;
+  constructor() {
+    super();
+    this._isDisposed = false;
+  }
+
+  public update(params: Object) {
+    this.builderNode_.update(params);
+  }
+
+  public getFrameNode(): FrameNode | null | undefined {
+    return this.builderNode_.getFrameNodeWithoutCheck();
+  }
+  public getFrameNodePtr(): NodePtr | undefined{
+    let frameNode = this.builderNode_.getFrameNode();
+    if (frameNode !== null) {
+      return frameNode.nodePtr_;
+    }
+    return undefined;
+  }
+  public setAttachedParent(parent: WeakRef<FrameNode> | undefined) {
+    this.parentWeak_ = parent;
+  }
+  public getNodePtr(): NodePtr {
+    if (this.attachNodeRef_ !== undefined) {
+      return this.attachNodeRef_.getNativeHandle();
+    }
+    return this.builderNode_.getNodePtr();
+  }
+  public reuse(param: Object): void {
+    this.builderNode_.reuse(param);
+  }
+  public recycle(): void {
+    this.builderNode_.recycle();
+  }
+  public onReuseWithBindObject(param?: Object): void {
+    this.builderNode_.onReuseWithBindObject(param);
+  }
+  public onRecycleWithBindObject(): void {
+    this.builderNode_.onRecycleWithBindObject();
+  }
+  public dispose(): void {
+    this._isDisposed = true;
+    if (this.getNodePtr()) {
+      getUINativeModule().frameNode.fireArkUIObjectLifecycleCallback(new WeakRef(this), 'ComponentContent', this.getFrameNode()?.getNodeType() || 'ComponentContent', this.getNodePtr());
+    }
+    this.detachFromParent();
+    this.attachNodeRef_?.dispose();
+    this.builderNode_?.dispose();
+  }
+
+  public isTransferred(): boolean {
+    return false;
+  }
+
+  public isDisposed(): boolean {
+    return this._isDisposed && (this.builderNode_?.isDisposed() ?? true);
+  }
+
+  public detachFromParent() {
+    if (this.parentWeak_ === undefined) {
+      return;
+    }
+    let parent = this.parentWeak_.deref();
+    if (parent !== undefined) {
+      parent.removeComponentContent(this);
+    }
+  }
+
+  public getNodeWithoutProxy(): NodePtr {
+    const node = this.getNodePtr();
+    const nodeType = getUINativeModule().frameNode.getNodeType(node);
+    if (nodeType === "BuilderProxyNode") {
+      const result = getUINativeModule().frameNode.getFirstUINode(node);
+      this.attachNodeRef_ = getUINativeModule().nativeUtils.createNativeStrongRef(result);
+      getUINativeModule().frameNode.removeChild(node, result);
+      return result;
+    }
+    return node;
+  }
+
+  public updateConfiguration(): void {
+    this.builderNode_.updateConfiguration();
+  }
+
+  public inheritFreezeOptions(enable: boolean): void {
+    this.builderNode_.inheritFreezeOptions(enable);
+  }
+
+  public getInstanceId(): number {
+    return this.instanceId_;
+  }
+
+  protected createBuilderNode(uiContext: UIContext, nodePtr: number, frameNodePtr: number): void {
+    let jsBuilderNode = JSBuilderNode.createForTrans(uiContext, nodePtr, frameNodePtr);
+    this.builderNode_ = new BuilderNode(uiContext, {}, jsBuilderNode);
+  }
+}
+
+class ComponentContent extends ComponentContentCommonBase {
+  constructor(uiContext: UIContext, builder: WrappedBuilder<[]> | WrappedBuilder<[Object]>, params?: Object, options?: BuildOptions) {
+    super();   
+    this.instanceId_ = uiContext.instanceId_;
+    if (this.isTransferred() == false) {
+      let builderNode = new BuilderNode(uiContext, {});
+      this.builderNode_ = builderNode;
+      this.builderNode_.build(builder, params ?? undefined, options);
+    }
+  }
+}
+
+class ReactiveComponentContent extends ComponentContentCommonBase {
+  constructor(uiContext: UIContext, builder: WrappedBuilder<[]> | WrappedBuilder<[Object]>, options?: BuildOptions, ...params: Object[]) {
+    super();
+    let reactiveBuilderNode = new ReactiveBuilderNode(uiContext, {});
+    this.builderNode_ = reactiveBuilderNode;
+    this.builderNode_.build(builder, options, ...params);
+  }
+  public flushState(): void {
+    if (this.builderNode_ instanceof ReactiveBuilderNode) {
+      (this.builderNode_ as ReactiveBuilderNode)?.flushState();
+    }
+  }
+}

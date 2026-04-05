@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2024-2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "base/log/log_wrapper.h"
+#include "core/interfaces/native/generated/interface/arkoala_api_generated.h"
+#include "core/common/dynamic_module_helper.h"
+#include "ui/base/utils/utils.h"
+
+namespace OHOS::Ace::NG::GeneratedModifier {
+#ifdef ARKUI_CAPI_UNITTEST
+const GENERATED_ArkUIMarqueeModifier* GetMarqueeStaticModifier();
+#endif
+const GENERATED_ArkUIMarqueeModifier* GetMarqueeModifier()
+{
+    static const GENERATED_ArkUIMarqueeModifier* cachedModifier = nullptr;
+
+    if (cachedModifier == nullptr) {
+#ifdef ARKUI_CAPI_UNITTEST
+        cachedModifier = GeneratedModifier::GetMarqueeStaticModifier();
+#else
+        auto* module = DynamicModuleHelper::GetInstance().GetDynamicModule("Marquee");
+        CHECK_NULL_RETURN(module, nullptr);
+        cachedModifier = reinterpret_cast<const GENERATED_ArkUIMarqueeModifier*>(module->GetStaticModifier());
+#endif
+    }
+
+    return cachedModifier;
+}
+
+}

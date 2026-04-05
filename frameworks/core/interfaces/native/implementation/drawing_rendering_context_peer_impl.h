@@ -1,0 +1,76 @@
+/*
+ * Copyright (c) 2024 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#ifndef FOUNDATION_ARKUI_ACE_ENGINE_FRAMEWORKS_CORE_INTERFACES_ARKOALA_IMPL_DRAWING_RENDERING_CONTEXT_PEER_IMPL_H
+#define FOUNDATION_ARKUI_ACE_ENGINE_FRAMEWORKS_CORE_INTERFACES_ARKOALA_IMPL_DRAWING_RENDERING_CONTEXT_PEER_IMPL_H
+
+#include "base/memory/referenced.h"
+#include "core/components/common/properties/paint_state.h"
+#include "core/components_ng/render/drawing.h"
+#include "core/pipeline/pipeline_base.h"
+#include "base/geometry/ng/size_t.h"
+#include "arkoala_api_generated.h"
+
+namespace OHOS::Ace::NG::GeneratedModifier {
+class DrawingRenderingContextPeerImpl : public Referenced {
+public:
+    DrawingRenderingContextPeerImpl();
+    ~DrawingRenderingContextPeerImpl() override = default;
+
+    void SetOptions(const std::optional<CanvasUnit>& unit);
+    void SetInvalidate();
+    SizeF GetSize();
+    std::shared_ptr<drawing_CanvasPeer> GetCanvas() const;
+    void SetRSCanvasCallback(WeakPtr<AceType>& canvasPattern);
+    CanvasRenderingContext2DPeer* GetOrCreateContext2D();
+    void SetCanvasPattern(const RefPtr<AceType>& canvas);
+    void SetUnit(CanvasUnit unit);
+
+    static void ThrowError(int32_t errCode, const std::string& errorMsg);
+
+    void SetInstanceId(int32_t id)
+    {
+        instanceId_ = id;
+    }
+    CanvasUnit GetUnit()
+    {
+        return unit_;
+    }
+    double GetDensity()
+    {
+        double density = PipelineBase::GetCurrentDensity();
+        return ((GetUnit() == CanvasUnit::DEFAULT) && !NearZero(density)) ? density : 1.0;
+    }
+    void SetBuiltIn(bool builtIn)
+    {
+        builtIn_ = builtIn;
+    }
+    bool IsBuiltIn() const
+    {
+        return builtIn_;
+    }
+
+protected:
+    WeakPtr<AceType> canvasPattern_;
+    int32_t instanceId_ = INSTANCE_ID_UNDEFINED;
+
+private:
+    std::shared_ptr<drawing_CanvasPeer> rsCanvas_;
+    NG::OptionalSizeF size_;
+    CanvasUnit unit_ = CanvasUnit::DEFAULT;
+    CanvasRenderingContext2DPeer* context2d_ = nullptr;
+    bool builtIn_ = false;
+};
+} // namespace OHOS::Ace::NG::GeneratedModifier
+#endif //FOUNDATION_ARKUI_ACE_ENGINE_FRAMEWORKS_CORE_INTERFACES_ARKOALA_IMPL_TABS_CONTROLLER_PEER_IMPL_H

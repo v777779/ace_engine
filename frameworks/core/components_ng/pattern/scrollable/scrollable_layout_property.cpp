@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "base/log/dump_log.h"
+#include "core/components_ng/pattern/scrollable/scrollable_layout_property.h"
+
+namespace OHOS::Ace::NG {
+
+void ScrollableLayoutProperty::DumpInfo()
+{
+    propContentStartOffset_.has_value() ? DumpLog::GetInstance().AddDesc(std::string("contentStartOffset: ")
+        .append(std::to_string(propContentStartOffset_.value())))
+        : DumpLog::GetInstance().AddDesc("contentStartOffset: None");
+    propContentEndOffset_.has_value() ? DumpLog::GetInstance().AddDesc(std::string("contentEndOffset: ")
+        .append(std::to_string(propContentEndOffset_.value())))
+        : DumpLog::GetInstance().AddDesc("contentEndOffset: None");
+}
+
+void ScrollableLayoutProperty::DumpInfo(std::unique_ptr<JsonValue>& json)
+{
+    json->Put("contentStartOffset",
+        propContentStartOffset_.has_value() ? std::to_string(propContentStartOffset_.value_or(0)).c_str() : "None");
+    json->Put("contentEndOffset",
+        propContentEndOffset_.has_value() ? std::to_string(propContentEndOffset_.value_or(0)).c_str() : "None");
+}
+
+void ScrollableLayoutProperty::ToJsonValue(std::unique_ptr<JsonValue>& json, const InspectorFilter& filter) const
+{
+    LayoutProperty::ToJsonValue(json, filter);
+    if (filter.IsFastFilter()) {
+        return;
+    }
+    json->PutExtAttr("contentStartOffset", std::to_string(propContentStartOffset_.value_or(0)).c_str(), filter);
+    json->PutExtAttr("contentEndOffset", std::to_string(propContentEndOffset_.value_or(0)).c_str(), filter);
+    json->PutExtAttr("supportEmptyBranchInLazyLoading", propSupportLazyLoadingEmptyBranch_.value_or(false), filter);
+}
+
+void ScrollableLayoutProperty::UpdateSupportLazyLoadingEmptyBranch(const bool& value)
+{
+    // only support first set
+    if (propSupportLazyLoadingEmptyBranch_.has_value()) {
+        return;
+    }
+    propSupportLazyLoadingEmptyBranch_ = value;
+    UpdatePropertyChangeFlag(PROPERTY_UPDATE_MEASURE);
+}
+
+} // namespace OHOS::Ace::NG

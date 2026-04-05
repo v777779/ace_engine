@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { DecoratedV1VariableBase } from './decoratorBase';
+import { StateUpdateLoop } from '../base/stateUpdateLoop';
+import { IObjectLinkDecoratedVariable, IVariableOwner } from '../decorator';
+import { IBackingValue } from '../base/iBackingValue';
+import { FactoryInternal } from '../base/iFactoryInternal';
+import { ObserveSingleton } from '../base/observeSingleton';
+import { WatchFuncType } from '../decorator';
+import { NullableObject } from '../base/types';
+import { UIUtils } from '../utils';
+import { uiUtils } from '../base/uiUtilsImpl';
+import { StateMgmtDFX, ObservedObjectRegistry } from '../tools/stateMgmtDFX';
+/**
+ * implementation of V1 @ObjectLink
+ * @ObjectLink has no local inot
+ * inits and updates from source
+ * @ObjectLink supports only object typ ein ArkTS 1.1
+ * for ArkTS 1.2 we also support simple types
+ * This enables migration of apps that use @Prop in their ArkTS 1.1
+ * to use @ObjectLink is ArkTS 1.2 when the copy of value is not required
+ * Copy is not needed e.g. if @Prop value is only read
+ * Hence, @ObjectLink is like V2 @Param but has one level of chnage observation and
+ * supports @Watch
+ */
+
+export class ObjectLinkDecoratedVariable<T>
+    extends DecoratedV1VariableBase<T>
+    implements IObjectLinkDecoratedVariable<T>
+{
+    private readonly backing_: IBackingValue<T>;
+    // parentInitValue is the init value of parent @Component
+    // constructor takes a copy of it
+    constructor(owningView: IVariableOwner, varName: string, parentInitValue: T, watchFunc?: WatchFuncType) {
+        super('@ObjectLink', owningView, varName, watchFunc);
+        this.backing_ = FactoryInternal.mkDecoratorValue<T>(varName, parentInitValue);
+        this.registerWatchForObservedObjectChanges(parentInitValue);
+
+        // Register the relationship between this ObjectLink variable and the observed object it uses
+        this.registerToObservedObject(parentInitValue);
+    }
+
+    public getInfo(): string {
+        return `@ObjectLink ${this.varName} (ObjectLinkDecoratedVariable)`;
+    }
+
+    public get(): T {
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`ObjectLink ${this.getTraceInfo()}`);
+        // @State V1: if this.__value instanceof IObservedObject limit permissible addRef depth to 1
+        const shouldAddRef = this.shouldAddRef();
+        const value = this.backing_.get(shouldAddRef);
+        if (shouldAddRef) {
+            ObserveSingleton.instance.setV1RenderId(value as NullableObject);
+            uiUtils.builtinContainersAddRefAnyKey(value);
+            this.selfTrack();
+            ObservedObjectRegistry.get(StateMgmtDFX.getObservedObjectFromValue(value))?.addV1InnerRef();
+        }
+        return value;
+    }
+
+    // @ObjectLink is immutable, no set
+    // @ObjectLink updates from parent
+    public update(newValue: T): void {
+        const oldValue = this.backing_.get(false);
+        StateMgmtDFX.enableDebug && StateMgmtDFX.functionTrace(`ObjectLink ${oldValue === newValue} ${this.updateTraceInfo()}`);
+        if (oldValue === newValue) {
+            return;
+        }
+        const value = uiUtils.makeV1Observed(newValue) as T;
+        StateUpdateLoop.add(() => {
+            if (this.backing_.set(value)) {
+                this.unregisterWatchFromObservedObjectChanges(oldValue);
+                this.registerWatchForObservedObjectChanges(value);
+
+                // Update ObservedObjectRegistry registration
+                this.updateObservedObjectRegistration(oldValue, value);
+
+                this.execWatchFuncs();
+            }
+        });
+    }
+
+    public aboutToBeDeletedInternal(): void {
+        // Unregister from the observed object before deletion
+        const currentValue = this.backing_.get(false);
+        this.unregisterFromObservedObject(currentValue);
+
+        // Call parent's cleanup
+        super.aboutToBeDeletedInternal();
+    }
+}

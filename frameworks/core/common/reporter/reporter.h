@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#ifndef FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_REPORTER_REPORTER_H
+#define FOUNDATION_ACE_FRAMEWORKS_CORE_COMMON_REPORTER_REPORTER_H
+
+#include "frameworks/core/components_ng/manager/event/json_report.h"
+#include "frameworks/core/gestures/gesture_event.h"
+namespace OHOS::Ace {
+struct TouchEvent;
+struct MouseEvent;
+struct AxisEvent;
+struct KeyEvent;
+} // namespace OHOS::Ace
+namespace OHOS::Ace::NG {
+class ACE_FORCE_EXPORT Reporter : public AceType {
+    DECLARE_ACE_TYPE(Reporter, AceType);
+
+public:
+    static Reporter& GetInstance();
+    virtual void HandleUISessionReporting(const JsonReport& report) const = 0;
+    virtual void HandleInputEventInspectorReporting(const TouchEvent& event) const = 0;
+    virtual void HandleInputEventInspectorReporting(const MouseEvent& event) const = 0;
+    virtual void HandleInputEventInspectorReporting(const AxisEvent& event) const = 0;
+    virtual void HandleInputEventInspectorReporting(const KeyEvent& event) const = 0;
+    virtual void HandleWindowFocusInspectorReporting(bool isFocus) const = 0;
+
+private:
+    virtual void HandleInspectorReporting(const JsonReport& report) const = 0;
+};
+} // namespace OHOS::Ace::NG
+#endif
